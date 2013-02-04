@@ -211,60 +211,6 @@ def get_token():
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
-
-	access_token = get_token()
-	channel_url = url_for('get_channel', _external=True)
-	channel_url = channel_url.replace('http:', '').replace('https:', '')
-
-	print "/"
-	print "Access token: " + str(access_token)
-
-	if access_token:
-
-		me = fb_call('me', args={'access_token': access_token})
-		fb_app = fb_call(FB_APP_ID, args={'access_token': access_token})
-		likes = fb_call('me/likes',
-						args={'access_token': access_token, 'limit': 4})
-		friends = fb_call('me/friends',
-						  args={'access_token': access_token, 'limit': 4})
-		photos = fb_call('me/photos',
-						 args={'access_token': access_token, 'limit': 16})
-
-		redir = get_home() + 'close/'
-		POST_TO_WALL = ("https://www.facebook.com/dialog/feed?redirect_uri=%s&"
-						"display=popup&app_id=%s" % (redir, FB_APP_ID))
-
-		app_friends = fql(
-			"SELECT uid, name, is_app_user, pic_square "
-			"FROM user "
-			"WHERE uid IN (SELECT uid2 FROM friend WHERE uid1 = me()) AND "
-			"  is_app_user = 1", access_token)
-
-		SEND_TO = ('https://www.facebook.com/dialog/send?'
-				   'redirect_uri=%s&display=popup&app_id=%s&link=%s'
-				   % (redir, FB_APP_ID, get_home()))
-
-		url = request.url
-
-		u = User.query.get(me['id'])
-		if not u:
-			u = User(me['id'])
-			u.name = me['name']
-			u.username = me['username']
-			u.link = me['link']
-			db.session.add(u)
-			db.session.commit()
-
-		return render_template(
-			'index.html', app_id=FB_APP_ID, token=access_token, likes=likes,
-			friends=friends, photos=photos, app_friends=app_friends, app=fb_app,
-			me=me, POST_TO_WALL=POST_TO_WALL, SEND_TO=SEND_TO, url=url,
-			channel_url=channel_url, name=FB_APP_NAME)
-	else:
-		return render_template('login.html', app_id=FB_APP_ID, token=access_token, url=request.url, channel_url=channel_url, name=FB_APP_NAME)
-
-@app.route('/graph', methods=['GET', 'POST'])
-def get_graph_page():
 	access_token = get_token()
 	channel_url = url_for('get_channel', _external=True)
 	channel_url = channel_url.replace('http:', '').replace('https:', '')
@@ -286,13 +232,13 @@ def get_graph_page():
 		fb_app = fb_call(FB_APP_ID, args={'access_token': access_token})
 
 		return render_template(
-			'graph.html', app_id=FB_APP_ID, token=access_token, app=fb_app, me=me, name=FB_APP_NAME)
+			'index.html', app_id=FB_APP_ID, token=access_token, app=fb_app, me=me, name=FB_APP_NAME)
 	else:
 		return render_template('login.html', app_id=FB_APP_ID, token=access_token, url=request.url, channel_url=channel_url, name=FB_APP_NAME)
 
 @app.route('/graph.json', methods=['GET', 'POST'])
 def get_graph_data():
-	access_token = request.args.get('access_token')
+	access_token = get_token()
 
 	print "/graph.json"
 	print "Access token: " + str(access_token)
