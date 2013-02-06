@@ -1,0 +1,21 @@
+
+html, body {
+	height: 100%;
+	margin: 0;
+	padding: 0;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+td {
+	border: 1px solid #ddd;
+	padding: 0.4em;
+}
+
+#constellation {
+	height: 100%;
+	width: 100%;
+}
+

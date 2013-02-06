@@ -10,7 +10,7 @@ import hashlib
 from base64 import urlsafe_b64decode, urlsafe_b64encode
 
 import requests
-from flask import Flask, request, redirect, render_template, url_for, session
+from flask import Flask, request, redirect, render_template, url_for, session, abort, make_response
 from flask_sqlalchemy import SQLAlchemy
 
 import datetime
@@ -84,19 +84,6 @@ def fbapi_auth(code):
 	return (result_dict["access_token"], result_dict["expires"])
 
 
-def fbapi_get_application_access_token(id):
-	token = fbapi_get_string(
-		path=u"/oauth/access_token",
-		params=dict(grant_type=u'client_credentials', client_id=id,
-					client_secret=app.config['FB_APP_SECRET']),
-		domain=u'graph')
-
-	token = token.split('=')[-1]
-	if not str(id) in token:
-		print 'Token mismatch: %s not in %s' % (id, token)
-	return token
-
-
 def fql(fql, token, args=None):
 	if not args:
 		args = {}
@@ -127,11 +114,13 @@ class User(db.Model):
 	name = db.Column(db.String(128))
 	username = db.Column(db.String(128))
 	link = db.Column(db.String(128))
-	access_token = db.Column(db.String(128))
 	charts = db.relationship('Chart', backref='user', lazy='dynamic')
 
-	def __init__(self, id):
+	def __init__(self, id, name, username, link):
 		self.id = id
+		self.name = name
+		self.username = username
+		self.link = link
 
 	def __repr__(self):
 		return '<User %r>' % self.id
@@ -140,15 +129,21 @@ class Chart(db.Model):
 	__tablename__ = 'fbc_chart'
 	id = db.Column(db.Integer, primary_key=True)
 	user_id = db.Column(db.String(128), db.ForeignKey('fbc_user.id'))
-	nodes = db.Column(db.LargeBinary)
+	graph_data = db.Column(db.LargeBinary)
 	graph_hash = db.Column(db.String(64))
+	node_count = db.Column(db.Integer())
+	edge_count = db.Column(db.Integer())
 	generated_date = db.Column(db.DateTime)
+	status = db.Column(db.String(32))
 
-	def __init__(self, user_id, nodes, graph_hash, generated_date):
+	def __init__(self, user_id, graph_data, graph_hash, node_count, edge_count, generated_date, status):
 		self.user_id = user_id
-		self.nodes = nodes
+		self.graph_data = graph_data
 		self.graph_hash = graph_hash
+		self.node_count = node_count
+		self.edge_count = edge_count
 		self.generated_date = generated_date
+		self.status = status
 
 	def __repr__(self):
 		return '<Chart %r>' % self.id
@@ -159,9 +154,9 @@ def get_home():
 
 
 def get_token():
-
-	if 'access_token' in session:
-		print "Using saved session token."
+	if ('access_token' in session
+		and 'expires' in session
+		and time.time() < session['expires']):
 		return session['access_token']
 
 	if request.args.get('code', None):
@@ -188,8 +183,6 @@ def get_token():
 		if sig != expected_sig:
 			raise ValueError('bad signature')
 
-		code =  data['code']
-
 		params = {
 			'client_id': FB_APP_ID,
 			'client_secret': FB_APP_SECRET,
@@ -199,12 +192,33 @@ def get_token():
 
 		from urlparse import parse_qs
 		r = requests.get('https://graph.facebook.com/oauth/access_token', params=params)
-		token = parse_qs(r.content).get('access_token')
+		print r.content
+		rd = parse_qs(r.content)
+		token = rd.get('access_token')
 		if token:
 			token = token[0]
-			session['access_token'] = token
+			me = fb_call('me', args={'access_token': token})
 
-		print r.content
+			u = User.query.get(me['id'])
+			if not u:
+				u = User(me['id'], me['name'], me['username'], me['link'])
+				db.session.add(u)
+				db.session.commit()
+
+			session['access_token'] = token
+			session['expires'] = time.time() + int(rd.get('expires')[0])
+			session['uid'] = me['id']
+
+			access_token = get_token()
+			accounts = fb_call('/me/accounts', args={'access_token': access_token})
+			adminAppIds = map(lambda x: x['id'], filter(lambda x: x['category'] == 'Application', accounts['data']))
+			session['is_admin'] = FB_APP_ID in adminAppIds
+
+		else:
+			responseData = json.loads(r.content)
+			if 'error' in responseData and 'message' in responseData['error']:
+				print responseData['error']['message']
+			print 'Failed to authenticate with Facebook API.'
 
 		return token
 
@@ -212,121 +226,314 @@ def get_token():
 @app.route('/', methods=['GET', 'POST'])
 def index():
 	access_token = get_token()
-	channel_url = url_for('get_channel', _external=True)
-	channel_url = channel_url.replace('http:', '').replace('https:', '')
-
-	print "/graph"
-	print "Access token: " + str(access_token)
-
 	if access_token:
 		me = fb_call('me', args={'access_token': access_token})
-		if not me or 'error' in me:
-			print me['error']
-
-			if 'code' in me['error'] and me['error']['code'] == 190:
-				# Access token expired.
-				session.pop('access_token', None)
-
-			return render_template('login.html', app_id=FB_APP_ID, token=access_token, url=request.url, channel_url=channel_url, name=FB_APP_NAME)
-
 		fb_app = fb_call(FB_APP_ID, args={'access_token': access_token})
 
-		return render_template(
-			'index.html', app_id=FB_APP_ID, token=access_token, app=fb_app, me=me, name=FB_APP_NAME)
+		return render_template('index.html', app_id=FB_APP_ID, token=access_token, app=fb_app, me=me, name=FB_APP_NAME)
 	else:
-		return render_template('login.html', app_id=FB_APP_ID, token=access_token, url=request.url, channel_url=channel_url, name=FB_APP_NAME)
+		resp = make_response(render_template('login.html', app_id=FB_APP_ID, token=access_token, url=request.url, name=FB_APP_NAME))
+		resp.set_cookie('fbsr_{0}'.format(FB_APP_ID), expires=0)
+		return resp
 
-@app.route('/graph.json', methods=['GET', 'POST'])
-def get_graph_data():
+
+@app.route('/chart/', methods=['GET', 'POST'])
+def charts():
+	if not session.get('is_admin', False):
+		abort(403)
+	
 	access_token = get_token()
-
-	print "/graph.json"
-	print "Access token: " + str(access_token)
-
 	if access_token:
+		if not 'uid' in session:
+			abort(403)
 
-		me = fb_call('me', args={'access_token': access_token})
-		if not me:
-			# FIXME: Implement error-handling.
-			raise
-		elif 'error' in me:
-			# FIXME: Implement error-handling.
-			raise Exception(me['error']['message'])
+		charts = Chart.query.filter(Chart.user_id == session['uid']).order_by(Chart.generated_date)
+		return render_template('charts.html', app_id=FB_APP_ID, token=access_token, charts=charts)
+	else:
+		return render_template('login.html', app_id=FB_APP_ID, token=access_token, url=request.url, name=FB_APP_NAME)
 
-		# DEBUG:
-		return '{"nodes": [{"id": 1, "data": {"label": "Root"}}], "edges": []}'
 
-		u = User.query.get(me['id'])
-		c = u.charts.order_by(Chart.generated_date.desc()).first();
+@app.route('/chart/<int:chartId>', methods=['GET', 'POST'])
+def chart(chartId):
+	if not session.get('is_admin', False):
+		abort(403)
+	
+	access_token = get_token()
+	if access_token:
+		if not 'uid' in session:
+			abort(403)
 
-		if c:
-			return c.nodes
+		chart = Chart.query.get(chartId)
+		if not chart:
+			abort(404)
 
-		else:
-			# NOTE: limiting to 1000 users.
-			friends = fql("SELECT uid, name, pic_square FROM user WHERE uid IN (SELECT uid2 FROM friend WHERE uid1=me()) LIMIT 1000", access_token)
+		if chart.user_id != session['uid']:
+			abort(403)
 
-			g = nx.Graph()
-			g.add_nodes_from(map(lambda x: (x['uid'],
-				{'id': str(x['uid']), 'name': x.get('name', ''), 'pic_square': x.get('pic_square', '')}),
-				friends))
+		return render_template('chart.html', app_id=FB_APP_ID, token=access_token, chart=chart)
+	else:
+		return render_template('login.html', app_id=FB_APP_ID, token=access_token, url=request.url, name=FB_APP_NAME)
 
-			batchSize = 50
-			numFriends = len(friends)
-			for i in range(0, int(math.ceil(float(numFriends) / batchSize))):
+
+@app.route('/chart/<int:chartId>/data', methods=['GET', 'POST'])
+def chartData(chartId):
+	if not session.get('is_admin', False):
+		abort(403)
+	
+	chart = Chart.query.get(chartId)
+	if not chart:
+		abort(404)
+
+	if not 'uid' in session or chart.user_id != session['uid']:
+		abort(403)
+
+	return chart.graph_data
+
+
+@app.route('/chart/<int:chartId>/clear', methods=['POST'])
+def chartClear(chartId):
+	if not session.get('is_admin', False):
+		abort(403)
+	
+	chart = Chart.query.get(chartId)
+	if chart:
+		chart.graph_data = ''
+		chart.graph_hash = ''
+		chart.node_count = 0
+		chart.edge_count = 0
+		chart.status = None
+		db.session.commit()
+	
+	return redirect('/chart')
+
+
+@app.route('/chart/<int:chartId>/fetch-data', methods=['POST'])
+def chartFetchData(chartId):
+	if not session.get('is_admin', False):
+		abort(403)
+	
+	chart = Chart.query.get(chartId)
+	if chart:
+		chart.status = 'fetchingdata'
+		db.session.commit()
+	
+	return redirect('/chart')
+
+
+@app.route('/chart/<int:chartId>/calc-layout', methods=['POST'])
+def chartCalcLayout(chartId):
+	if not session.get('is_admin', False):
+		abort(403)
+	
+	chart = Chart.query.get(chartId)
+	if chart:
+		chart.status = 'calculatinglayout'
+		db.session.commit()
+	
+	return redirect('/chart')
+
+
+@app.route('/chart/<int:chartId>/reset-layout', methods=['POST'])
+def chartResetLayout(chartId):
+	if not session.get('is_admin', False):
+		abort(403)
+	
+	chart = Chart.query.get(chartId)
+	if chart:
+		data = json.loads(chart.graph_data)
+
+		for n in data['nodes']:
+			if 'x' in n:
+				del n['x']
+			if 'y' in n:
+				del n['y']
+
+		chart.graph_data = json.dumps(data)
+
+		db.session.commit()
+	
+	return redirect('/chart')
+
+
+@app.route('/chart/<int:chartId>/duplicate', methods=['POST'])
+def chartDuplicate(chartId):
+	if not session.get('is_admin', False):
+		abort(403)
+	
+	chart = Chart.query.get(chartId)
+	if chart:
+		chart2 = Chart(
+			chart.user_id,
+			chart.graph_data,
+			chart.graph_hash,
+			chart.node_count,
+			chart.edge_count,
+			chart.generated_date,
+			chart.status)
+
+		db.session.add(chart2)
+		db.session.commit()
+	
+	return redirect('/chart')
+
+
+@app.route('/chart/<int:chartId>/delete', methods=['POST'])
+def chartDelete(chartId):
+	if not session.get('is_admin', False):
+		abort(403)
+	
+	chart = Chart.query.get(chartId)
+	if chart:
+		db.session.delete(chart)
+		db.session.commit()
+	
+	return redirect('/chart')
+
+
+@app.route('/chart/create', methods=['POST'])
+def chartCreate():
+	if not session.get('is_admin', False):
+		abort(403)
+	
+	chart = Chart(session['uid'], '', '', 0, 0, datetime.datetime.now(), 'created')
+	db.session.add(chart)
+	db.session.commit()
+
+	return redirect('/chart')
+
+
+@app.route('/process-jobs', methods=['GET', 'POST'])
+def processJobs():
+	if not session.get('is_admin', False):
+		abort(403)
+	
+	access_token = get_token()
+	if access_token:
+		print "Processing jobs..."
+
+		charts = Chart.query.filter(Chart.status == 'fetchingdata')
+		for chart in charts:
+			print "Fetching data for chart {0}".format(chart.id)
+			if processFetchData(chart):
+				time.sleep(1)
+			else:
+				time.sleep(10)
+		
+		charts = Chart.query.filter(Chart.status == 'calculatinglayout')
+		for chart in charts:
+			print "Calculating layout for chart {0}".format(chart.id)
+			processCalcLayout(chart)
+			time.sleep(1)
+		
+		print "...done processing jobs."
+
+		return redirect('/chart')
+
+
+def processFetchData(chart):
+	access_token = get_token()
+	if access_token:
+		# NOTE: limiting to 1000 users.
+		friends = fql("SELECT uid, name, pic_square FROM user WHERE uid IN (SELECT uid2 FROM friend WHERE uid1=me()) LIMIT 1000", access_token)
+
+		g = nx.Graph()
+		g.add_nodes_from(map(lambda x: (str(x['uid']),
+			{'id': str(x['uid']), 'name': x.get('name', ''), 'pic_square': x.get('pic_square', '')}),
+			friends))
+
+		batchSize = 50
+		for i in range(0, int(math.ceil(float(len(friends)) / batchSize))):
+			retriesRemaining = 2
+			while retriesRemaining > 0:
+				print "Batch #" + str(i)
 				batchIds = map(lambda x: str(x['uid']), friends[i * batchSize:(i + 1) * batchSize])
-				batch = map(lambda x: {'method': 'GET',
-					'relative_url': "me/mutualfriends/{0}".format(x)}, batchIds)
+				batch = map(lambda x: {'method': 'GET', 'relative_url': "me/mutualfriends/{0}".format(x)}, batchIds)
 
 				url = 'https://graph.facebook.com'
-				response = requests.post(url,
-					params={'access_token': access_token, 'batch': json.dumps(batch)})
-				response = json.loads(response.content)
+				response = requests.post(url, params={'access_token': access_token, 'batch': json.dumps(batch)})
+				responseData = json.loads(response.content)
 
-				errors = filter(lambda x: x['code'] != 200, response)
+				errors = filter(lambda x: not x or x['code'] != 200, responseData)
 				if len(errors) > 0:
-					# FIXME: Implement error-handling.
-					return "Got errors: " + json.dumps(errors)
+					print "Got errors: (" + str(len(errors)) + ") " + json.dumps(errors)
+
+					if retriesRemaining > 0:
+						retriesRemaining -= 1
+
+						time.sleep(10)
+						print "Retrying current batch call."
+
+					else:
+						print "Giving up."
+						chart.status = 'fetchingdataerror'
+						db.session.commit()
+						return False
+
 				else:
-					response = map(lambda x: map(lambda y: y['id'], json.loads(x['body'])['data']), response)
-					for j in range(0, len(response)):
-						g.add_edges_from(zip([batchIds[j]] * len(response[j]), response[j]))
+					responseData = map(lambda x: map(lambda y: y['id'], json.loads(x['body'])['data']), responseData)
+					for j in range(0, len(responseData)):
+						g.add_edges_from(zip([batchIds[j]] * len(responseData[j]), responseData[j]))
 
-				time.sleep(0.1)
+					time.sleep(1)
+					break
 
-			layout = nx.spring_layout(g, 2, None, None, 100, True, 1)
-			for nodeId in layout:
-				coords = layout[nodeId]
-				g.node[nodeId]['x'] = str(coords[0])
-				g.node[nodeId]['y'] = str(coords[1])
+		chart.graph_data = ('{"nodes": '
+			+ json.dumps(map(lambda x: x[1], g.nodes(data=True)))
+			+ ', "edges": '
+			+ json.dumps(g.edges(data=False)) + '}')
+		chart.node_count = len(g.nodes())
+		chart.edge_count = len(g.edges())
+		chart.status = 'datafetched'
 
-			response = ('{"nodes": '
-				+ json.dumps(map(lambda x: x[1], g.nodes(data=True)))
-				+ ', "edges": '
-				+ json.dumps(g.edges(data=False)) + '}')
-
-			c = Chart(u.id, response, '', datetime.datetime.now())
-			db.session.add(c)
-			db.session.commit()
-
-			return response
+		db.session.commit()
+		return True
 	else:
-		return '{"data": false}'
+		print 'Failed to fetch data for chart {0}. No access token.'.format(chart.id)
+		return False
 
+
+def processCalcLayout(chart):
+	data = json.loads(chart.graph_data)
+
+	g = nx.Graph()
+	initialPos = {}
+
+	for n in data['nodes']:
+		g.add_node(n['id'], n)
+		if 'x' in n and 'y' in n:
+			initialPos[n['id']] = (n['x'], n['y'])
+
+	for e in data['edges']:
+		g.add_edge(e[0], e[1])
+
+	layout = nx.spring_layout(g, dim=2, pos=initialPos, iterations=100, scale=1.0)
+	for nodeId in layout:
+		coords = layout[nodeId]
+		g.node[nodeId]['x'] = str(coords[0])
+		g.node[nodeId]['y'] = str(coords[1])
+
+	chart.graph_data = ('{"nodes": '
+		+ json.dumps(map(lambda x: x[1], g.nodes(data=True)))
+		+ ', "edges": '
+		+ json.dumps(g.edges(data=False)) + '}')
+	chart.node_count = len(g.nodes())
+	chart.edge_count = len(g.edges())
+	chart.status = 'layoutcalculated'
+
+	db.session.commit()
+	return True
+
+@app.route('/test', methods=['GET', 'POST'])
+def test():
+	return "That's all folks!"
 
 @app.route('/logout', methods=['GET', 'POST'])
 def logout():
 	session.pop('access_token', None)
+	session.pop('expires', None)
+	session.pop('uid', None)
+	session.pop('is_admin', None)
 	return redirect('/')
-
-@app.route('/channel.html', methods=['GET', 'POST'])
-def get_channel():
-	return render_template('channel.html')
-
-
-@app.route('/close/', methods=['GET', 'POST'])
-def close():
-	return render_template('close.html')
 
 if __name__ == '__main__':
 	port = int(os.environ.get("PORT", 5000))

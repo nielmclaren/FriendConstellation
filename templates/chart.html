@@ -9,11 +9,11 @@
 					 id: 'constellation',
 					 graphLoaderClass: SimpleGraphLoader,
 					 graphLoader: {
-									 url: 'graph.json'
+									 url: '/chart/{{chart.id}}/data'
 					 },
 					 graphParserClass: CustomGraphParser,
 					 graphViewClass: DirectGraphView,
-					 layoutClass: RoamerLayout
+					 layoutClass: StaticLayout
 		};
 		var styles = [
 					 ['node', {

@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+	<div id="fb-root"></div>
+	<h1>Your Charts</h1>
+	<table>
+	<thead>
+		<tr>
+			<td>&nbsp;</td>
+			<td>Date</td>
+			<td>Nodes</td>
+			<td>Edges</td>
+			<td>Data</td>
+			<td>Status</td>
+			<td>Actions</td>
+		</tr>
+	</thead>
+	<tbody>
+	{% for chart in charts %}
+		<tr>
+			<td>{{chart.id}}</td>
+			<td>{{chart.generated_date.strftime('%Y-%m-%d %H:%m:%S')}}</td>
+			<td>{{chart.node_count}}</td>
+			<td>{{chart.edge_count}}</td>
+			<td><a href="/chart/{{chart.id}}">Viz</a>&nbsp;<a href="/chart/{{chart.id}}/data">JSON</a></td>
+			<td>{{chart.status}}</td>
+			<td>
+				<form method="post" action="/chart/{{chart.id}}/fetch-data"><input type="submit" value="Fetch Data" /></form>
+				<form method="post" action="/chart/{{chart.id}}/calc-layout"><input type="submit" value="Calculate Layout" /></form>
+				<form method="post" action="/chart/{{chart.id}}/reset-layout"><input type="submit" value="Reset Layout" /></form>
+				<form method="post" action="/chart/{{chart.id}}/duplicate"><input type="submit" value="Duplicate" /></form>
+				<form method="post" action="/chart/{{chart.id}}/clear" onsubmit="return confirm('Do you really want to clear the chart?');"><input type="submit" value="Clear" /></form>
+				<form method="post" action="/chart/{{chart.id}}/delete" onsubmit="return confirm('Do you really want to delete the chart?');"><input type="submit" value="Delete" /></form>
+			</td>
+		</tr>
+	{% endfor %}
+	</tbody>
+	</table>
+
+	<form method="post" action="/process-jobs">
+		<input type="submit" value="Process Jobs" />
+	</form>
+
+	<form method="post" action="/chart/create">
+		<input type="submit" value="Create New" />
+	</form>
+
+{% endblock %}
