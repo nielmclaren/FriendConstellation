@@ -20,10 +20,26 @@
 									 rendererClass: CustomNodeRenderer
 					 }],
 					 ['edge', {
-									 rendererClass: RoamerEdgeRenderer
+									 rendererClass: DefaultEdgeRenderer
 					 }]
 		];
+
 		var constellation = new Constellation(config, styles);
+		$(constellation).bind('log', function(event, severity, message) {
+			var args = Array.prototype.slice.call(arguments, 2);
+			switch (severity) {
+				case 'debug':
+					//window.console.debug.apply(window.console, args);
+					break;
+				case 'warn':
+					window.console.warn.apply(window.console, args);
+					break;
+				case 'error':
+					window.console.error.apply(window.console, args);
+					break;
+			}
+		});
+
 		constellation.init();
 	</script>
 

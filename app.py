@@ -270,7 +270,7 @@ def chart(chartId):
 		if chart.user_id != session['uid']:
 			abort(403)
 
-		return render_template('chart.html', app_id=FB_APP_ID, token=access_token, chart=chart)
+		return render_template('constellation.html', app_id=FB_APP_ID, token=access_token, chart=chart)
 	else:
 		return render_template('login.html', app_id=FB_APP_ID, token=access_token, url=request.url, name=FB_APP_NAME)
 

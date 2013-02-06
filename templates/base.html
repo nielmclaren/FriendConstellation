@@ -3,7 +3,7 @@
 <head>
 	<meta charset="utf-8" />
 
-	<title>Friend Constellation</title>
+	<title>Constellation Friend Charts</title>
 
 	<!-- FIXME: Fill out the metadata. -->
 	<meta content="" property="og:title" />
@@ -14,19 +14,26 @@
 	<meta property="og:description" content="Friend Constellation" />
 	<meta content="{{app_id}}" property="fb:app_id" />
 
-	<script type="text/javascript" src="/static/jquery-1.7.1.min.js"></script>
-	<script type="text/javascript" src="/static/jquery-ui-1.8.17.custom.min.js"></script>
-	<script type="text/javascript" src="/static/jquery.mousewheel.js"></script>
-	<script type="text/javascript" src="/static/jquery.svg.js"></script>
-	
-	<script type="text/javascript" src="/static/constellation.min.js"></script>
-	<script type="text/javascript" src="/static/custom.constellation.js"></script>
-	
 	<link type="text/css" href="/static/ui-lightness/jquery-ui-1.8.17.custom.css" rel="stylesheet" />	
-	<style type="text/css">@import "/static/jquery.svg.css";</style>
-	<link type="text/css" href="/static/style.css" rel="stylesheet" />	
+	<style type="text/css">@import "/static/css/jquery.svg.css";</style>
+	<link type="text/css" href="/static/css/style.css" rel="stylesheet" />	
 </head>
 <body>
+
+	{% block header %}
+
+	{% endblock %}
+
+	<script type="text/javascript" src="/static/js/jquery-1.7.1.min.js"></script>
+	<script type="text/javascript" src="/static/js/jquery-ui-1.8.17.custom.min.js"></script>
+	<script type="text/javascript" src="/static/js/jquery.mousewheel.js"></script>
+	<script type="text/javascript" src="/static/js/jquery.svg.js"></script>
+
+	<script src="/static/js/bootstrap.min.js"></script>
+	
+	<script type="text/javascript" src="/static/js/constellation.min.js"></script>
+	<script type="text/javascript" src="/static/js/custom.constellation.js"></script>
+	
 	<script type="text/javascript">
 		window.fbAsyncInit = function() {
 			FB.init({
