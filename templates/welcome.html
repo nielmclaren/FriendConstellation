@@ -1,8 +1,42 @@
 {% extends "base.html" %}
 
-{% block content %}
+{% block header %}
 
 	<div id="fb-root"></div>
-	<h1>Constellation Friend Charts</h1>
+	<div class="container">
+		<div class="hero-unit">
+			<h1>Map Your Social Network</h1>
+			<p class="lead"><cite>Friend Constellation</cite> creates a visual map of your friend groups from school, work, and play.</p>
+			<p><a class="btn btn-primary btn-large" href="javascript:FB.login(function() {window.location='/constellation';}, {scope:'email,offline_access'});">Connect to Facebook</a></p>
+		</div>
+
+{% endblock %}
+
+{% block content %}
+
+		<div class="row">
+			<div class="span4">
+				<h2>Heading</h2>
+				<p>Donec id elit non mi porta gravida at eget metus. Fusce dapibus, tellus ac cursus commodo, tortor mauris condimentum nibh, ut fermentum massa justo sit amet risus. Etiam porta sem malesuada magna mollis euismod. Donec sed odio dui. </p>
+				<p><a class="btn" href="#">View details &raquo;</a></p>
+			</div>
+			<div class="span4">
+				<h2>Heading</h2>
+				<p>Donec id elit non mi porta gravida at eget metus. Fusce dapibus, tellus ac cursus commodo, tortor mauris condimentum nibh, ut fermentum massa justo sit amet risus. Etiam porta sem malesuada magna mollis euismod. Donec sed odio dui. </p>
+				<p><a class="btn" href="#">View details &raquo;</a></p>
+		 </div>
+			<div class="span4">
+				<h2>Heading</h2>
+				<p>Donec sed odio dui. Cras justo odio, dapibus ac facilisis in, egestas eget quam. Vestibulum id ligula porta felis euismod semper. Fusce dapibus, tellus ac cursus commodo, tortor mauris condimentum nibh, ut fermentum massa justo sit amet risus.</p>
+				<p><a class="btn" href="#">View details &raquo;</a></p>
+			</div>
+		</div>
+
+		<hr>
+
+		<footer>
+			<p>Created by <a href="http://danielmclaren.com">Daniel McLaren</a></p>
+		</footer>
+	</div>
 
 {% endblock %}

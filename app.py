@@ -192,7 +192,6 @@ def get_token():
 
 		from urlparse import parse_qs
 		r = requests.get('https://graph.facebook.com/oauth/access_token', params=params)
-		print r.content
 		rd = parse_qs(r.content)
 		token = rd.get('access_token')
 		if token:
@@ -225,16 +224,23 @@ def get_token():
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
+	return render_template('welcome.html', app_id=FB_APP_ID)
+
+@app.route('/constellation', methods=['GET', 'POST'])
+def constellation():
 	access_token = get_token()
 	if access_token:
-		me = fb_call('me', args={'access_token': access_token})
-		fb_app = fb_call(FB_APP_ID, args={'access_token': access_token})
-
-		return render_template('index.html', app_id=FB_APP_ID, token=access_token, app=fb_app, me=me, name=FB_APP_NAME)
+		user = User.query.get(session['uid'])
+		chart = user.charts.filter(Chart.status == 'ready').order_by(Chart.generated_date.desc()).first()
+		
+		if chart:
+			return render_template('constellation.html', app_id=FB_APP_ID, token=access_token, chart=chart)
+		else:
+			# No charts are ready yet. Check whether there is one processing.
+			# FIXME: Check whether there is a chart processing.
+			return render_template('processing.html', app_id=FB_APP_ID, token=access_token)
 	else:
-		resp = make_response(render_template('login.html', app_id=FB_APP_ID, token=access_token, url=request.url, name=FB_APP_NAME))
-		resp.set_cookie('fbsr_{0}'.format(FB_APP_ID), expires=0)
-		return resp
+		return render_template('login.html', app_id=FB_APP_ID, token=access_token, url=request.url, name=FB_APP_NAME)
 
 
 @app.route('/chart/', methods=['GET', 'POST'])
@@ -529,6 +535,9 @@ def test():
 
 @app.route('/logout', methods=['GET', 'POST'])
 def logout():
+	"""
+		Be sure to call FB.logout as well.
+	"""
 	session.pop('access_token', None)
 	session.pop('expires', None)
 	session.pop('uid', None)
