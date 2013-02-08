@@ -234,13 +234,13 @@ def constellation():
 		chart = user.charts.filter(Chart.status == 'ready').order_by(Chart.generated_date.desc()).first()
 		
 		if chart:
-			return render_template('constellation.html', app_id=FB_APP_ID, token=access_token, chart=chart)
+			return render_template('constellation.html', app_id=FB_APP_ID, token=access_token, user=user, chart=chart)
 		else:
 			# No charts are ready yet. Check whether there is one processing.
 			# FIXME: Check whether there is a chart processing.
 			return render_template('processing.html', app_id=FB_APP_ID, token=access_token)
 	else:
-		return render_template('login.html', app_id=FB_APP_ID, token=access_token, url=request.url, name=FB_APP_NAME)
+		return redirect('/')
 
 
 @app.route('/chart/', methods=['GET', 'POST'])
