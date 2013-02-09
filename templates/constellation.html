@@ -3,6 +3,13 @@
 {% block content %}
 
 	<div id="fb-root"></div>
+	
+	<div id="nodePopover" class="popover fade top in" style="top: -58px; left: 57.5px; display: none;">
+		<div class="arrow"></div>
+		<h3 class="popover-title"></h3>
+		<div class="popover-content"></div>
+	</div>
+
 	<div class="navbar navbar-inverse navbar-fixed-top">
 		<div class="navbar-inner">
 				<a class="btn btn-navbar" data-toggle="collapse" data-target=".nav-collapse">
@@ -173,6 +180,12 @@
 				})
 				.bind('nodeclick', function(event, nodeId) {
 					constellation.setSelectedNodeId(nodeId);
+					var n = constellation.getNode(nodeId);
+
+					$('#nodePopover .popover-title').text(n.name);
+					$('#nodePopover .popover-content').html(
+						'<img src="' + n.pic + '" /><p>' + n.name + '</p>');
+					$('#nodePopover').show();
 				})
 				.bind('nodeselect', function(event, nodeId) {
 					var n;

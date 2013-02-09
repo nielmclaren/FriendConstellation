@@ -247,7 +247,6 @@ def constellation():
 	else:
 		return redirect('/')
 
-
 @app.route('/chart/', methods=['GET', 'POST'])
 def charts():
 	if not session.get('is_admin', False):
@@ -542,7 +541,16 @@ def processCalcLayout(chart):
 
 @app.route('/test', methods=['GET', 'POST'])
 def test():
-	return "That's all folks!"
+	channel_url = url_for('get_channel', _external=True)
+	channel_url = channel_url.replace('http:', '').replace('https:', '')
+
+	user = User.query.get(session['uid'])
+	chart = user.charts.filter(Chart.status == 'ready').order_by(Chart.generated_date.desc()).first()
+	
+	if chart:
+		return render_template('test.html', app_id=FB_APP_ID, channel_url=channel_url, user=user, chart=chart)
+	else:
+		return redirect('/')
 
 @app.route('/logout', methods=['GET', 'POST'])
 def logout():
