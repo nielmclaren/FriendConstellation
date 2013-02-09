@@ -30,7 +30,7 @@
 				rendererClass: CustomNodeRenderer
 			}],
 			['edge', {
-				rendererClass: DefaultEdgeRenderer
+				rendererClass: CustomEdgeRenderer
 			}]
 		];
 
@@ -51,11 +51,9 @@
 					}
 				})
 				.bind('nodeclick', function(event, nodeId) {
-					var prev = prevSelectedNodeId;
-					constellation.setSelectedNodeId(nodeId);
-					var n = constellation.getNode(nodeId);
+					var node = constellation.getNode(nodeId);
 
-					if (prev == nodeId) {
+					if (prevSelectedNodeId == nodeId) {
 						if ($('#nodePopover').css('display') == 'block') {
 							$('#nodePopover').hide();
 						}
@@ -65,40 +63,75 @@
 					}
 					else {
 						$('#nodePopover .popover-content').html(
-							'<div style="float:left;height:50px;width:50px"><img src="' + n.data.pic_square + '" width="50" height="50" /></div>'
-							+ '<div style="margin-left: 60px;min-height: 50px;"><p style="font-weight:bold">' + n.data.name + '</p></div>');
+							'<div style="float:left;height:50px;width:50px"><img src="' + node.data.pic_square + '" width="50" height="50" /></div>'
+							+ '<div style="margin-left: 60px;min-height: 50px;"><p style="font-weight:bold"><a href="' + node.data.link + '" target="_blank" style="color:#333">' + node.data.name + '</a></p><p style="margin-left:0.4em"><a href="javascript:exploreNode(\'' + node.id + '\');">Explore &raquo;</a></div>');
 						$('#nodePopover').show();
 
-						var offset = $(n.renderer.group).offset();
-						offset.top -= $('#nodePopover').height() + 17;
-						offset.left -= $('#nodePopover').width() / 2 - 3;
-						$('#nodePopover').offset(offset);
+						positionNodePopover(node);
+
+						selectNode(nodeId);
 					}
 				})
 				.bind('nodeselect', function(event, nodeId) {
-					var n;
-					if (prevSelectedNodeId) {
-						n = constellation.getNode(prevSelectedNodeId);
-						if (n) {
-							n.data.selected = false;
-							n.draw();
-						}
-					}
-
-					n = constellation.getNode(nodeId);
-					if (n) {
-						n.data.selected = true;
-						n.draw();
-					}
-
 					prevSelectedNodeId = nodeId;
 				})
 				.bind('click', function(event) {
-					constellation.setSelectedNodeId(null);
+					selectNode(null);
 					$('#nodePopover').hide();
+				})
+				.bind('viewportchange', function(evt) {
+					var node = constellation.getNode(constellation.getSelectedNodeId());
+					if (node) {
+						positionNodePopover(node);
+					}
 				});
 
 			constellation.init();
+		}
+
+		function selectNode(nodeId) {
+			var prevNode = constellation.getNode(prevSelectedNodeId);
+			if (prevNode) {
+				prevNode.setState('default');
+				$.each(prevNode.edges, function(i, e) {
+					e.setState('default');
+					e.getOtherNode(prevSelectedNodeId).setState('default');
+				});
+			}
+
+			var node = constellation.getNode(nodeId);
+			if (node) {
+				node.setState('selected');
+				$.each(node.edges, function(i, e) {
+					e.setState('emphasized');
+					constellation.arrangeEdgeFront(e);
+
+					var other = e.getOtherNode(nodeId);
+					other.setState('emphasized');
+					constellation.arrangeNodeFront(other);
+				});
+			}
+
+			constellation.setSelectedNodeId(nodeId);
+
+			$.each(constellation.getNodes(), function(i, n) {
+				n.draw();
+			});
+
+			$.each(constellation.getEdges(), function(i, e) {
+				e.draw();
+			});
+		}
+
+		function positionNodePopover(node) {
+			var offset = $(node.renderer.group).offset();
+			offset.top -= $('#nodePopover').height() + 17;
+			offset.left -= $('#nodePopover').width() / 2 - 3;
+			$('#nodePopover').offset(offset);
+		}
+
+		function exploreNode(nodeId) {
+			console.log("Exploring node: " + nodeId);
 		}
 
 	</script>
