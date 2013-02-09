@@ -61,13 +61,6 @@
 					}
 				}
 				else {
-					$('#nodePopover .popover-content').html(
-						'<div style="float:left;height:50px;width:50px"><img src="' + node.data.pic_square + '" width="50" height="50" /></div>'
-						+ '<div style="margin-left: 60px;min-height: 50px;"><p style="font-weight:bold"><a href="' + node.data.link + '" target="_blank" style="color:#333">' + node.data.name + '</a></p><p style="margin-left:0.4em"><a href="javascript:exploreNode(\'' + node.id + '\');">Explore &raquo;</a></div>');
-					$('#nodePopover').show();
-
-					positionNodePopover(node);
-
 					selectNode(nodeId);
 				}
 			})
@@ -76,16 +69,39 @@
 			})
 			.bind('click', function(event) {
 				selectNode(null);
-				$('#nodePopover').hide();
 			})
 			.bind('viewportchange', function(evt) {
 				var node = constellation.getNode(constellation.getSelectedNodeId());
 				if (node) {
 					positionNodePopover(node);
 				}
+			})
+			.bind('viewchanged', function(event) {
+				var fragment = String(location.hash);
+				if (fragment && fragment.length > 0) {
+					if (fragment.charAt(0) == '#') {
+						fragment = fragment.substring(1);
+					}
+					// If there's a URL fragment, jump to that node.
+					selectNode(fragment);
+				}
 			});
 
+
 		constellation.init();
+
+
+		// If the URL fragment changes, jump to that node.
+		$(window).bind('hashchange', function(event) {
+			var fragment = String(location.hash);
+			if (fragment && fragment.length > 0) {
+				if (fragment.charAt(0) == '#') {
+					fragment = fragment.substring(1);
+				}
+				selectNode(fragment);
+			}
+		});
+
 
 		function selectNode(nodeId) {
 			var prevNode = constellation.getNode(prevSelectedNodeId);
@@ -108,9 +124,20 @@
 					other.setState('emphasized');
 					constellation.arrangeNodeFront(other);
 				});
+
+				$('#nodePopover .popover-content').html(
+					'<div style="float:left;height:50px;width:50px"><img src="' + node.data.pic_square + '" width="50" height="50" /></div>'
+					+ '<div style="margin-left: 60px;min-height: 50px;"><p style="font-weight:bold"><a href="' + node.data.link + '" target="_blank" style="color:#333">' + node.data.name + '</a></p><p style="margin-left:0.4em"><a href="javascript:exploreNode(\'' + node.id + '\');">Explore &raquo;</a></div>');
+				$('#nodePopover').show();
+
+				positionNodePopover(node);
+			}
+			else {
+				$('#nodePopover').hide();
 			}
 
 			constellation.setSelectedNodeId(nodeId);
+			window.location.hash = nodeId == null ? '' : nodeId;
 
 			$.each(constellation.getNodes(), function(i, n) {
 				n.draw();
