@@ -10,19 +10,12 @@
 					<span class="icon-bar"></span>
 					<span class="icon-bar"></span>
 				</a>
-				<a class="brand" href="#">Friend Constellation</a>
 
 				<div class="nav-collapse collapse">
 					<ul class="nav">
 						<li class="dropdown">
-							<a id="historyToggle" class="dropdown-toggle" data-toggle="dropdown" href="#">Jump&nbsp;to&nbsp;<b class="caret"></b></a>
-							<ul class="dropdown-menu" role="menu" aria-labeledby="historyToggle">
-								<li><a href="#">Item 1</a></li>
-								<li><a href="#">Item 2</a></li>
-								<li><a href="#">Item 3</a></li>
-								<li><a href="#">Item 4</a></li>
-								<li class="divider"></li>
-								<li><a href="#">Item 5</a></li>
+							<a id="friendListToggle" class="dropdown-toggle" data-toggle="dropdown" href="#">Jump&nbsp;to&nbsp;<b class="caret"></b></a>
+							<ul id="friendList" class="dropdown-menu" role="menu" aria-labeledby="friendListToggle">
 							</ul>
 						</li>
 					</ul>
@@ -140,42 +133,63 @@
 	</div>
 	<script type="text/javascript">
 
-		var config = {
-					 id: 'constellation',
-					 graphLoaderClass: SimpleGraphLoader,
-					 graphLoader: {
-									 url: '/chart/{{chart.id}}/data'
-					 },
-					 graphParserClass: CustomGraphParser,
-					 graphViewClass: DirectGraphView,
-					 layoutClass: StaticLayout
-		};
-		var styles = [
-					 ['node', {
-									 rendererClass: CustomNodeRenderer
-					 }],
-					 ['edge', {
-									 rendererClass: DefaultEdgeRenderer
-					 }]
-		];
+		var constellation;
+		var initConstellation = function() {
+			var config = {
+						 id: 'constellation',
+						 graphLoaderClass: SimpleGraphLoader,
+						 graphLoader: {
+										 url: '/chart/{{chart.id}}/data'
+						 },
+						 graphParserClass: CustomGraphParser,
+						 graphViewClass: DirectGraphView,
+						 layoutClass: StaticLayout
+			};
+			var styles = [
+						 ['node', {
+										 rendererClass: CustomNodeRenderer
+						 }],
+						 ['edge', {
+										 rendererClass: DefaultEdgeRenderer
+						 }]
+			];
 
-		var constellation = new Constellation(config, styles);
-		$(constellation).bind('log', function(event, severity, message) {
-			var args = Array.prototype.slice.call(arguments, 2);
-			switch (severity) {
-				case 'debug':
-					//window.console.debug.apply(window.console, args);
-					break;
-				case 'warn':
-					window.console.warn.apply(window.console, args);
-					break;
-				case 'error':
-					window.console.error.apply(window.console, args);
-					break;
-			}
-		});
+			constellation = new Constellation(config, styles);
+			$(constellation).bind('log', function(event, severity, message) {
+				var args = Array.prototype.slice.call(arguments, 2);
+				switch (severity) {
+					case 'debug':
+						//window.console.debug.apply(window.console, args);
+						break;
+					case 'warn':
+						window.console.warn.apply(window.console, args);
+						break;
+					case 'error':
+						window.console.error.apply(window.console, args);
+						break;
+				}
+			});
 
-		constellation.init();
+			constellation.init();
+			
+			FB.getLoginStatus(function(response) {
+				if (response.status === 'connected') {
+					FB.api('/me/friends', function(response) {
+						if (response.data) {
+							response.data.sort(function(a,b) { return a.name < b.name ? -1 : a.name > b.name ? 1 : 0; });
+							$.each(response.data, function(i, d) {
+								$('#friendList').append(
+									"<li><a href=\"javascript:constellation.setSelectedNodeId('" + d.id + "');\">"
+									+ d.name + '</a></li>');
+							});
+						}
+					});
+				}
+				else {
+					window.location = '/';
+				}
+			});
+		}
 
 	</script>
 

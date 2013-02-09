@@ -19,6 +19,11 @@ td {
 	width: 100%;
 }
 
+#friendList {
+	max-height: 400px;
+	overflow-y: scroll;
+}
+
 #footer {
 	position: absolute;
 	bottom: 0;
