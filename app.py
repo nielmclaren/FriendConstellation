@@ -224,17 +224,22 @@ def get_token():
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
-	return render_template('welcome.html', app_id=FB_APP_ID)
+	channel_url = url_for('get_channel', _external=True)
+	channel_url = channel_url.replace('http:', '').replace('https:', '')
+	return render_template('welcome.html', app_id=FB_APP_ID, channel_url=channel_url)
 
 @app.route('/constellation', methods=['GET', 'POST'])
 def constellation():
 	access_token = get_token()
 	if access_token:
+		channel_url = url_for('get_channel', _external=True)
+		channel_url = channel_url.replace('http:', '').replace('https:', '')
+
 		user = User.query.get(session['uid'])
 		chart = user.charts.filter(Chart.status == 'ready').order_by(Chart.generated_date.desc()).first()
 		
 		if chart:
-			return render_template('constellation.html', app_id=FB_APP_ID, token=access_token, user=user, chart=chart)
+			return render_template('constellation.html', app_id=FB_APP_ID, token=access_token, channel_url=channel_url, user=user, chart=chart)
 		else:
 			# No charts are ready yet. Check whether there is one processing.
 			# FIXME: Check whether there is a chart processing.
@@ -248,15 +253,18 @@ def charts():
 	if not session.get('is_admin', False):
 		abort(403)
 	
+	channel_url = url_for('get_channel', _external=True)
+	channel_url = channel_url.replace('http:', '').replace('https:', '')
+
 	access_token = get_token()
 	if access_token:
 		if not 'uid' in session:
 			abort(403)
 
 		charts = Chart.query.filter(Chart.user_id == session['uid']).order_by(Chart.generated_date)
-		return render_template('charts.html', app_id=FB_APP_ID, token=access_token, charts=charts)
+		return render_template('charts.html', app_id=FB_APP_ID, token=access_token, channel_url=channel_url, charts=charts)
 	else:
-		return render_template('login.html', app_id=FB_APP_ID, token=access_token, url=request.url, name=FB_APP_NAME)
+		return render_template('login.html', app_id=FB_APP_ID, token=access_token, channel_url=channel_url, url=request.url, name=FB_APP_NAME)
 
 
 @app.route('/chart/<int:chartId>', methods=['GET', 'POST'])
@@ -264,6 +272,9 @@ def chart(chartId):
 	if not session.get('is_admin', False):
 		abort(403)
 	
+	channel_url = url_for('get_channel', _external=True)
+	channel_url = channel_url.replace('http:', '').replace('https:', '')
+
 	access_token = get_token()
 	if access_token:
 		if not 'uid' in session:
@@ -276,9 +287,9 @@ def chart(chartId):
 		if chart.user_id != session['uid']:
 			abort(403)
 
-		return render_template('constellation.html', app_id=FB_APP_ID, token=access_token, chart=chart)
+		return render_template('constellation.html', app_id=FB_APP_ID, token=access_token, channel_url=channel_url, chart=chart)
 	else:
-		return render_template('login.html', app_id=FB_APP_ID, token=access_token, url=request.url, name=FB_APP_NAME)
+		return render_template('login.html', app_id=FB_APP_ID, token=access_token, channel_url=channel_url, url=request.url, name=FB_APP_NAME)
 
 
 @app.route('/chart/<int:chartId>/data', methods=['GET', 'POST'])
@@ -543,6 +554,10 @@ def logout():
 	session.pop('uid', None)
 	session.pop('is_admin', None)
 	return redirect('/')
+
+@app.route('/channel.html', methods=['GET', 'POST'])
+def get_channel():
+    return render_template('channel.html')
 
 if __name__ == '__main__':
 	port = int(os.environ.get("PORT", 5000))

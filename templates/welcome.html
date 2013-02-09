@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block header %}
+{% block content %}
 
 	<div id="fb-root"></div>
 	<div class="container">
@@ -9,10 +9,6 @@
 			<p class="lead"><cite>Friend Constellation</cite> creates a visual map of your friend groups from school, work, and play.</p>
 			<p><a class="btn btn-primary btn-large" href="javascript:FB.login(function() {window.location='/constellation';}, {scope:'email,offline_access'});">Connect to Facebook</a></p>
 		</div>
-
-{% endblock %}
-
-{% block content %}
 
 		<div class="row">
 			<div class="span4">
