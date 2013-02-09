@@ -22,9 +22,11 @@ CustomGraphParser.prototype.parse = function(data) {
 
 	var graph = this.graph;
 	
+	var layoutSize = 4096;
 	jQuery.each(data.nodes, function(i, node) {
-		node.x *= 1000;
-		node.y *= 1000;
+		// Incoming values are normalized [0-1].
+		node.x = node.x * layoutSize - layoutSize/2;
+		node.y = node.y * layoutSize - layoutSize/2;
 		graph.addNode(node.id, node);
 	});
 
@@ -35,6 +37,38 @@ CustomGraphParser.prototype.parse = function(data) {
 	jQuery(this).trigger('complete');
 };
 
+
+CustomLayout = function(config) {
+	if (arguments.length <= 0) return;
+	Layout.call(this, config);
+};
+
+CustomLayout.prototype = new Layout();
+CustomLayout.prototype.constructor = CustomLayout;
+
+CustomLayout.prototype.viewChanged = function(){
+	var nodes = this['constellation'].getNodes();
+	for (var i = 0; i < nodes.length; i++) {
+		var node = nodes[i];
+		if (node['x'] == null || node['y'] == null) {
+			if (node['data']['x']) {
+				node['x'] = node['data']['x'];
+			}
+			else {
+				node['x'] = (Math.random() - 0.5) * this['constellation'].viewportWidth;
+			}
+			
+			if (node['data']['y']) {
+				node['y'] = node['data']['y'];
+			}
+			else {
+				node['y'] = (Math.random() - 0.5) * this['constellation'].viewportHeight;
+			}
+		}
+	}
+	
+	jQuery(this).trigger('change');
+};
 
 
 /**
@@ -48,7 +82,6 @@ CustomGraphParser.prototype.parse = function(data) {
 CustomNodeRenderer = function(constellation, nodeId, data) {
 	NodeRenderer.call(this, constellation, nodeId, data);
 };
-window["CustomNodeRenderer"] = CustomNodeRenderer;
 
 CustomNodeRenderer.prototype = new NodeRenderer();
 CustomNodeRenderer.prototype.constructor = CustomNodeRenderer;
@@ -63,7 +96,7 @@ CustomNodeRenderer.prototype.create = function(){
 	this.renderer = {
 		group: group,
 		graphic: svg.circle(group, 0, 0, 5, {
-			'fill': '#9999ff',
+			'fill': this.data.selected ? '#ff9999' : '#9999ff',
 			'stroke': '#666666',
 			'strokeWidth': 1
 /*
@@ -107,6 +140,7 @@ CustomNodeRenderer.prototype.create = function(){
 };
 
 CustomNodeRenderer.prototype.draw = function() {
+	var svg = this['constellation']['svg'];
 /*
 	var labelBounds = this.renderer.label.getBBox();
 	var horizontalPadding = 8, verticalPadding = 3;
@@ -123,6 +157,7 @@ CustomNodeRenderer.prototype.draw = function() {
 		labelBackground.css('display', 'none');
 	}
 */
+	svg.change(this.renderer.graphic, {'fill': this.data.selected ? '#ff9999' : '#9999ff'});
 	
 	this.position();
 	
