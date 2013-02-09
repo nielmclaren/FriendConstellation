@@ -211,11 +211,16 @@ CustomEdgeRenderer.prototype.create = function() {
 CustomEdgeRenderer.prototype.draw = function() {
 	var hasSelection = this.constellation.getSelectedNodeId() != null;
 	jQuery(this.renderer.line)
+		.css('stroke', this.state == 'emphasized' ? '#888888' : hasSelection ? '#eeeeee' : '#cccccc')
+		.css('display', 'inline');
+};
+
+CustomEdgeRenderer.prototype.position = function() {
+	jQuery(this.renderer.line)
 		.attr('x1', this['tailNode']['x'])
 		.attr('y1', this['tailNode']['y'])
 		.attr('x2', this['headNode']['x'])
 		.attr('y2', this['headNode']['y'])
-		.css('stroke', this.state == 'emphasized' ? '#888888' : hasSelection ? '#eeeeee' : '#cccccc')
 		.css('display', 'inline');
 };
 
