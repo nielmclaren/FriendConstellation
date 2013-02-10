@@ -12,7 +12,9 @@
 	<div id="constellation"></div>
 	<script type="text/javascript">
 
+		var visualizationMode = 'overview'; // 'overview' or 'explore'
 		var prevSelectedNodeId;
+		var ignoreHashChange = false;
 
 		var config = {
 			id: 'constellation',
@@ -22,7 +24,10 @@
 			},
 			graphParserClass: CustomGraphParser,
 			graphViewClass: DirectGraphView,
-			layoutClass: CustomLayout
+			layoutClass: CustomLayout,
+			layout: {
+				baseEdgeLength: 300
+			}
 		};
 		var styles = [
 			['node', {
@@ -52,7 +57,7 @@
 			.bind('nodeclick', function(event, nodeId) {
 				var node = constellation.getNode(nodeId);
 
-				if (prevSelectedNodeId == nodeId) {
+				if (constellation.getSelectedNodeId() == nodeId) {
 					if ($('#nodePopover').css('display') == 'block') {
 						$('#nodePopover').hide();
 					}
@@ -64,10 +69,8 @@
 					selectNode(nodeId);
 				}
 			})
-			.bind('nodeselect', function(event, nodeId) {
-				prevSelectedNodeId = nodeId;
-			})
 			.bind('click', function(event) {
+				setVisualizationMode('overview');
 				selectNode(null);
 			})
 			.bind('viewportchange', function(evt) {
@@ -93,17 +96,30 @@
 
 		// If the URL fragment changes, jump to that node.
 		$(window).bind('hashchange', function(event) {
-			var fragment = String(location.hash);
-			if (fragment && fragment.length > 0) {
-				if (fragment.charAt(0) == '#') {
-					fragment = fragment.substring(1);
+			if (!ignoreHashChange) {
+				var fragment = String(location.hash);
+				if (fragment && fragment.length > 0) {
+					if (fragment.charAt(0) == '#') {
+						fragment = fragment.substring(1);
+					}
+					selectNode(fragment);
 				}
-				selectNode(fragment);
 			}
 		});
 
 
 		function selectNode(nodeId) {
+			if (constellation.getSelectedNodeId() == nodeId) return;
+
+			prevSelectedNodeId = constellation.getSelectedNodeId();
+			constellation.setSelectedNodeId(nodeId);
+
+			console.log("selectNode", prevSelectedNodeId + " -> " + nodeId);
+
+			ignoreHashChange = true;
+			window.location.hash = nodeId == null ? '' : nodeId;
+			ignoreHashChange = false;
+
 			var prevNode = constellation.getNode(prevSelectedNodeId);
 			if (prevNode) {
 				prevNode.setState('default');
@@ -116,14 +132,16 @@
 			var node = constellation.getNode(nodeId);
 			if (node) {
 				node.setState('selected');
-				$.each(node.edges, function(i, e) {
-					e.setState('emphasized');
-					constellation.arrangeEdgeFront(e);
+				if (getVisualizationMode() == 'overview') {
+					$.each(node.edges, function(i, e) {
+						e.setState('emphasized');
+						constellation.arrangeEdgeFront(e);
 
-					var other = e.getOtherNode(nodeId);
-					other.setState('emphasized');
-					constellation.arrangeNodeFront(other);
-				});
+						var other = e.getOtherNode(nodeId);
+						other.setState('emphasized');
+						constellation.arrangeNodeFront(other);
+					});
+				}
 
 				$('#nodePopover .popover-content').html(
 					'<div style="float:left;height:50px;width:50px"><img src="' + node.data.pic_square + '" width="50" height="50" /></div>'
@@ -136,16 +154,8 @@
 				$('#nodePopover').hide();
 			}
 
-			constellation.setSelectedNodeId(nodeId);
-			window.location.hash = nodeId == null ? '' : nodeId;
-
-			$.each(constellation.getNodes(), function(i, n) {
-				n.draw();
-			});
-
-			$.each(constellation.getEdges(), function(i, e) {
-				e.draw();
-			});
+			$.each(constellation.getNodes(), function(i, n) { n.draw(); });
+			$.each(constellation.getEdges(), function(i, e) { e.draw(); });
 		}
 
 		function positionNodePopover(node) {
@@ -155,8 +165,28 @@
 			$('#nodePopover').offset(offset);
 		}
 
+		function getVisualizationMode() {
+			return visualizationMode;
+		}
+		function setVisualizationMode(mode) {
+			if (visualizationMode == mode) return;
+			switch (mode) {
+				case 'overview':
+					constellation.setGraphView(new DirectGraphView(constellation.config.graphView));
+					constellation.setLayout(new CustomLayout(constellation.config.layout));
+					break;
+
+				case 'explore':
+					constellation.setGraphView(new TreeGraphView({depth: 2}));
+					constellation.setLayout(new RoamerLayout(constellation.config.layout));
+					break;
+			}
+			visualizationMode = mode;
+		}
+
 		function exploreNode(nodeId) {
-			console.log("Exploring node: " + nodeId);
+			setVisualizationMode('explore');
+			selectNode(nodeId);
 		}
 
 	</script>

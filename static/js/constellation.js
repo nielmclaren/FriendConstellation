@@ -417,6 +417,7 @@ SimpleGraphLoader.prototype.constructor = SimpleGraphLoader;
 
 SimpleGraphLoader.prototype.setConstellation = function(constellation) {
 	if (this['constellation']) {
+		// FIXME: This is unbinding *all* nodeselect listeners. Need to just unbind our listener.
 		jQuery(this['constellation']).unbind('initialized');
 	}
 	
@@ -767,10 +768,12 @@ GraphView.prototype["invalidate"] = GraphView.prototype.invalidate;
  * @private
  */
 GraphView.prototype.validateDispatcher = function(){
-	var changed = this['validate']();
-	this.valid = true;
-	if (changed) {
-		jQuery(this).trigger('change');
+	if (this['constellation'] && this['source'] && this['result']) {
+		var changed = this['validate']();
+		this.valid = true;
+		if (changed) {
+			jQuery(this).trigger('change');
+		}
 	}
 };
 
@@ -874,7 +877,6 @@ TreeGraphView = function(config){
 	
 	GraphView.call(this, config);
 	
-	this.prevSelectedNodeId = null;
 	this.selectedNodeId = null;
 	
 	this.selectedNodeChanged = false;
@@ -887,12 +889,17 @@ TreeGraphView.prototype.constructor = TreeGraphView;
 
 TreeGraphView.prototype.setConstellation = function(constellation){
 	if (this['constellation']) {
+		// FIXME: This is unbinding *all* nodeselect listeners. Need to just unbind our listener.
 		jQuery(this['constellation']).unbind('nodeselect');
 	}
 	
 	GraphView.prototype.setConstellation.call(this, constellation);
 	
 	if (this['constellation']) {
+		var prevSelectedNodeId = this.selectedNodeId;	
+		this.selectedNodeId = this['constellation'].getSelectedNodeId();
+		this.selectedNodeChanged = this.selectedNodeId != prevSelectedNodeId;
+
 		jQuery(this['constellation']).bind('nodeselect', {context: this}, function(event){
 			event.data.context.selectedNodeHandler();
 		});
@@ -1144,6 +1151,7 @@ StaticLayout.prototype.constructor = StaticLayout;
 
 StaticLayout.prototype.setConstellation = function(constellation) {
 	if (this['constellation']) {
+		// FIXME: This is unbinding *all* nodeselect listeners. Need to just unbind our listener.
 		jQuery(this['constellation'])
 			.unbind('nodemousedown')
 			.unbind('mouseup');
@@ -1244,6 +1252,7 @@ RoamerLayout.prototype.constructor = RoamerLayout;
 
 RoamerLayout.prototype.setConstellation = function(constellation) {
 	if (this['constellation']) {
+		// FIXME: This is unbinding *all* nodeselect listeners. Need to just unbind our listener.
 		jQuery(this['constellation']).unbind('nodeAdded');
 		
 		if (this.timeoutId) clearTimeout(this.timeoutId);
@@ -2556,6 +2565,7 @@ Constellation.prototype.setGraphView = function(graphView) {
 		this.graphView['setConstellation'](null);
 		this.graphView['setSource'](null);
 		this.graphView['setResult'](null);
+		// FIXME: This is unbinding *all* nodeselect listeners. Need to just unbind our listener.
 		jQuery(this.graphView).unbind('change');
 	}
 	
@@ -2613,6 +2623,7 @@ Constellation.prototype.setGraphParser = function(graphParser) {
 		}
 		this.graphParser['setGraph'](null);
 		
+		// FIXME: This is unbinding *all* nodeselect listeners. Need to just unbind our listener.
 		jQuery(this.graphParser).unbind('complete');
 	}
 	
@@ -2642,6 +2653,7 @@ Constellation.prototype.setLayout = function(layout) {
 	if (this.layout) {
 		this.layout['setConstellation'](null);
 
+		// FIXME: This is unbinding *all* nodeselect listeners. Need to just unbind our listener.
 		jQuery(this.layout).unbind('change');
 	}
 	

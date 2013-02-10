@@ -16,7 +16,7 @@ CustomGraphParser.prototype.parse = function(data) {
 
 	var graph = this.graph;
 	
-	var layoutSize = 8196;
+	var layoutSize = 32784;
 	jQuery.each(data.nodes, function(i, node) {
 		// Incoming values are normalized [0-1].
 		node.x = node.x * layoutSize - layoutSize/2;
@@ -83,16 +83,58 @@ CustomNodeRenderer.prototype.create = function(){
 	var svg = this.constellation.svg;
 	var container = this.constellation.getNodeContainer();
 	
+	var picSize = 30;
+
 	var group = svg.group(container, {'display': 'none'});
+	var label = svg.text(group, 0, 0, this.data.name, {
+		style: '-webkit-user-select: none;-khtml-user-select: none;-moz-user-select: none;-o-user-select: none;user-select: none;',
+		fontFamily: 'Verdana',
+		fontSize: 15,
+		fontWeight: 'bold',
+		fill: '#441111',
+		textAnchor: 'start',
+		
+		// HACK: Better cross-browser compatibility with 'dy'
+		//dominantBaseline: 'central'
+		dy: '.35em'
+	});
+
+	var labelBounds = label.getBBox();
+	var totalWidth = 4 + picSize + 6 + labelBounds.width + 4;
+
 	this.renderer = {
 		group: group,
 		graphic: svg.circle(group, 0, 0, 5, {
 			'fill': '#9999ff',
 			'stroke': '#666666',
 			'strokeWidth': 1
-		})
+		}),
+		box: svg.rect(
+			group,
+			-totalWidth/2,
+			-labelBounds.height/2 - 4,
+			totalWidth,
+			labelBounds.height + 8,
+			4, 4, {
+				fill: '#ffffff',
+				stroke: '#000000',
+				strokeWidth: 1
+			}),
+		picBox: svg.rect(group, -totalWidth/2 + 4, -15, picSize, picSize, 0, 0, {
+			fill: '#ffffff',
+			stroke: '#000000',
+			strokeWidth: 1
+		}),
+		pic: svg.image(group, -totalWidth/2 + 4, -15, picSize, picSize, this.data.pic_square),
+		label: label,
+		tooltip: svg.title(group, this.data.name)
 	};
-	
+
+	jQuery(label).insertAfter(jQuery(group).children().last());
+	svg.change(label, {
+		x: -totalWidth/2 + 4 + picSize + 6
+	});
+
 	jQuery(this.renderer.group)
 		.bind('mouseover', {'context':this}, function(event) {
 			event.data.context.constellation.nodemouseoverHandler(event, event.data.context);
@@ -114,7 +156,7 @@ CustomNodeRenderer.prototype.create = function(){
 CustomNodeRenderer.prototype.draw = function() {
 	var svg = this['constellation']['svg'];
 
-	var selected = this.state == 'selected';
+	var mode = getVisualizationMode();
 	var hasSelection = this.constellation.getSelectedNodeId() != null;
 	var settings = {};
 	switch (this.state) {
@@ -134,9 +176,9 @@ CustomNodeRenderer.prototype.draw = function() {
 			break;
 		default:
 			settings = {
-				'fill': hasSelection ? '#eeeeee' : '#9999ff',
-				'stroke': '#666666',
-				'strokeWidth': hasSelection ? 0 : 1
+				'fill': mode == 'overview' && hasSelection ? '#eeeeee' : '#9999ff',
+				'stroke': mode == 'overview' && hasSelection ? '#cccccc' : '#666666',
+				'strokeWidth': 1
 			};
 			break;
 	}
