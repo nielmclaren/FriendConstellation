@@ -23,7 +23,6 @@ import time
 FB_APP_ID = os.environ.get('FACEBOOK_APP_ID')
 FB_APP_SECRET = os.environ.get('FACEBOOK_SECRET')
 FB_APP_NAME = 'Friend Constellation'
-SQLALCHEMY_DATABASE_URI = os.environ.get('SQLALCHEMY_DATABASE_URI')
 requests = requests.session()
 
 
@@ -107,6 +106,7 @@ app.secret_key = FB_APP_SECRET
 app.config.from_object(__name__)
 app.config.from_object('conf.Config')
 db = SQLAlchemy(app)
+
 
 class User(db.Model):
 	__tablename__ = 'fbc_user'
@@ -569,9 +569,12 @@ def get_channel():
 
 if __name__ == '__main__':
 	port = int(os.environ.get("PORT", 5000))
-	if (app.config.get('FB_APP_ID')
-		and app.config.get('FB_APP_SECRET')
-		and app.config.get('SQLALCHEMY_DATABASE_URI')):
-		app.run(host='0.0.0.0', port=port, debug=True)
+	if not app.config.get('FB_APP_ID'):
+		print "Cannot start without Facebook app ID."
+	elif not app.config.get('FB_APP_SECRET'):
+		print "Cannot start without Facebook app secret."
+	elif not app.config.get('SQLALCHEMY_DATABASE_URI'):
+		print "Cannot start without database URI."
 	else:
-		print 'Cannot start application without Facebook App Id and Secret and database URI set'
+		app.run(host='0.0.0.0', port=port, debug=True)
+

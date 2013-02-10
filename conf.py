@@ -7,3 +7,4 @@ class Config(object):
 	FBAPI_APP_ID = os.environ.get('FACEBOOK_APP_ID')
 	FBAPI_APP_SECRET = os.environ.get('FACEBOOK_SECRET')
 	FBAPI_SCOPE = []
+	SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
