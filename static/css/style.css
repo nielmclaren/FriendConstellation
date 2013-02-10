@@ -42,3 +42,7 @@ td {
     border: none;
     content: none;
 }
+
+.navbar .nav li.zoomButton {
+	margin-top: 8px;
+}

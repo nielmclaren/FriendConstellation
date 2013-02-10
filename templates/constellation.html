@@ -4,9 +4,8 @@
 
 	<div id="fb-root"></div>
 	
-	<div id="nodePopover" class="popover fade top in" style="top: -58px; left: 57.5px; display: none;">
+	<div id="nodePopover" class="popover fade top in" style="display:none;position:absolute">
 		<div class="arrow"></div>
-		<h3 class="popover-title"></h3>
 		<div class="popover-content"></div>
 	</div>
 
@@ -25,6 +24,8 @@
 							<ul id="friendList" class="dropdown-menu" role="menu" aria-labeledby="friendListToggle">
 							</ul>
 						</li>
+						<li class="zoomButton"><button id="zoomOutButton">-</button></li>
+						<li class="zoomButton"><button id="zoomInButton">+</button></li>
 					</ul>
 
 					<ul class="nav pull-right">
@@ -138,98 +139,10 @@
 			</div>
 		</div>
 	</div>
+
 	<script type="text/javascript">
-
-		var constellation;
-		var prevSelectedNodeId;
-		var initConstellation = function() {
-			var config = {
-						 id: 'constellation',
-						 graphLoaderClass: SimpleGraphLoader,
-						 graphLoader: {
-										 url: '/chart/{{chart.id}}/data'
-						 },
-						 graphParserClass: CustomGraphParser,
-						 graphViewClass: DirectGraphView,
-						 layoutClass: CustomLayout
-			};
-			var styles = [
-						 ['node', {
-										 rendererClass: CustomNodeRenderer
-						 }],
-						 ['edge', {
-										 rendererClass: DefaultEdgeRenderer
-						 }]
-			];
-
-			constellation = new Constellation(config, styles);
-			$(constellation)
-				.bind('log', function(event, severity, message) {
-					var args = Array.prototype.slice.call(arguments, 2);
-					switch (severity) {
-						case 'debug':
-							//window.console.debug.apply(window.console, args);
-							break;
-						case 'warn':
-							window.console.warn.apply(window.console, args);
-							break;
-						case 'error':
-							window.console.error.apply(window.console, args);
-							break;
-					}
-				})
-				.bind('nodeclick', function(event, nodeId) {
-					constellation.setSelectedNodeId(nodeId);
-					var n = constellation.getNode(nodeId);
-
-					$('#nodePopover .popover-title').text(n.name);
-					$('#nodePopover .popover-content').html(
-						'<img src="' + n.pic + '" /><p>' + n.name + '</p>');
-					$('#nodePopover').show();
-				})
-				.bind('nodeselect', function(event, nodeId) {
-					var n;
-					if (prevSelectedNodeId) {
-						n = constellation.getNode(prevSelectedNodeId);
-						if (n) {
-							n.data.selected = false;
-							n.draw();
-						}
-					}
-
-					n = constellation.getNode(nodeId);
-					if (n) {
-						n.data.selected = true;
-						n.draw();
-					}
-
-					prevSelectedNodeId = nodeId;
-				})
-				.bind('click', function(event) {
-					constellation.setSelectedNodeId(null);
-				});
-
-			constellation.init();
-			
-			FB.getLoginStatus(function(response) {
-				if (response.status === 'connected') {
-					FB.api('/me/friends', function(response) {
-						if (response.data) {
-							response.data.sort(function(a,b) { return a.name < b.name ? -1 : a.name > b.name ? 1 : 0; });
-							$.each(response.data, function(i, d) {
-								$('#friendList').append(
-									"<li><a href=\"javascript:constellation.setSelectedNodeId('" + d.id + "');\">"
-									+ d.name + '</a></li>');
-							});
-						}
-					});
-				}
-				else {
-					window.location = '/';
-				}
-			});
-		}
-
+		var chartId = '{{chart.id}}';
 	</script>
+	<script type="text/javascript" src="/static/js/visualization.js"></script>
 
 {% endblock %}
