@@ -463,16 +463,24 @@ def processFetchData(chart):
 				batchIds = map(lambda x: str(x['uid']), friends[i * batchSize:(i + 1) * batchSize])
 				batch = map(lambda x: {'method': 'GET', 'relative_url': "me/mutualfriends/{0}".format(x)}, batchIds)
 
-				url = 'https://graph.facebook.com'
-				response = requests.post(url, params={'access_token': access_token, 'batch': json.dumps(batch)})
-				responseData = json.loads(response.content)
+				error = False
+				try:
+					url = 'https://graph.facebook.com'
+					response = requests.post(url, params={'access_token': access_token, 'batch': json.dumps(batch)})
+					responseData = json.loads(response.content)
 
-				errors = filter(lambda x: not x or x['code'] != 200, responseData)
-				if len(errors) > 0:
-					print "Got errors: (" + str(len(errors)) + ") " + json.dumps(errors)
+					errors = filter(lambda x: not x or x['code'] != 200, responseData)
+					if len(errors) > 0:
+						print "Got errors: (" + str(len(errors)) + ") " + json.dumps(errors)
+						error = True
 
+				except ConnectionError, err:
+					print "Got connection error. {0}".format(err)
+					error = True
+
+				if error:
+					retriesRemaining -= 1
 					if retriesRemaining > 0:
-						retriesRemaining -= 1
 
 						time.sleep(10)
 						print "Retrying current batch call."
