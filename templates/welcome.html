@@ -3,6 +3,23 @@
 {% block content %}
 
 	<div id="fb-root"></div>
+	
+	<div class="navbar navbar-inverse navbar-fixed-top">
+		<div class="navbar-inner">
+				<div class="nav-collapse collapse">
+					{% if user %}
+					<ul class="nav pull-right">
+						<li class="pull-right"><a href="javascript:FB.logout(function() {window.location='/logout';});">Logout</a></li>
+					</ul>
+					<p class="navbar-text pull-right"><strong>{{user.name}}</strong></p>
+					{%- else %}
+					<ul class="nav pull-right">
+						<li class="pull-right"><a href="javascript:FB.login(function() {window.location='/constellation';}, {scope:'email,offline_access'});">Login</a></li>
+					{%- endif %}
+				</div>
+		</div>
+	</div>
+
 	<div class="container">
 		<div class="hero-unit">
 			<h1>Map Your Social Network</h1>
