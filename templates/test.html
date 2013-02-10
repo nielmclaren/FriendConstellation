@@ -12,9 +12,9 @@
 	<div id="constellation"></div>
 	<script type="text/javascript">
 
-		var visualizationMode = 'overview'; // 'overview' or 'explore'
 		var prevSelectedNodeId;
 		var ignoreHashChange = false;
+		var popoverTimeoutId;
 
 		var config = {
 			id: 'constellation',
@@ -25,9 +25,7 @@
 			graphParserClass: CustomGraphParser,
 			graphViewClass: DirectGraphView,
 			layoutClass: CustomLayout,
-			layout: {
-				baseEdgeLength: 300
-			}
+			layout: {}
 		};
 		var styles = [
 			['node', {
@@ -54,6 +52,20 @@
 						break;
 				}
 			})
+			.bind('nodemouseover', function(event, nodeId) {
+				var node = constellation.getNode(nodeId);
+				if (node) {
+					if (popoverTimeoutId) clearTimeout(popoverTimeoutId);
+					popoverTimeoutId = setTimeout(function() {
+						showNodePopover(node);
+						positionNodePopover(node);
+					}, 250);
+				}
+			})
+			.bind('nodemouseout', function(event, nodeId) {
+				if (popoverTimeoutId) clearTimeout(popoverTimeoutId);
+				hideNodePopover();
+			})
 			.bind('nodeclick', function(event, nodeId) {
 				var node = constellation.getNode(nodeId);
 
@@ -70,14 +82,7 @@
 				}
 			})
 			.bind('click', function(event) {
-				setVisualizationMode('overview');
 				selectNode(null);
-			})
-			.bind('viewportchange', function(evt) {
-				var node = constellation.getNode(constellation.getSelectedNodeId());
-				if (node) {
-					positionNodePopover(node);
-				}
 			})
 			.bind('viewchanged', function(event) {
 				var fragment = String(location.hash);
@@ -132,61 +137,39 @@
 			var node = constellation.getNode(nodeId);
 			if (node) {
 				node.setState('selected');
-				if (getVisualizationMode() == 'overview') {
-					$.each(node.edges, function(i, e) {
-						e.setState('emphasized');
-						constellation.arrangeEdgeFront(e);
+				$.each(node.edges, function(i, e) {
+					e.setState('emphasized');
+					constellation.arrangeEdgeFront(e);
 
-						var other = e.getOtherNode(nodeId);
-						other.setState('emphasized');
-						constellation.arrangeNodeFront(other);
-					});
-				}
-
-				$('#nodePopover .popover-content').html(
-					'<div style="float:left;height:50px;width:50px"><img src="' + node.data.pic_square + '" width="50" height="50" /></div>'
-					+ '<div style="margin-left: 60px;min-height: 50px;"><p style="font-weight:bold"><a href="' + node.data.link + '" target="_blank" style="color:#333">' + node.data.name + '</a></p><p style="margin-left:0.4em"><a href="javascript:exploreNode(\'' + node.id + '\');">Explore &raquo;</a></div>');
-				$('#nodePopover').show();
-
-				positionNodePopover(node);
-			}
-			else {
-				$('#nodePopover').hide();
+					var other = e.getOtherNode(nodeId);
+					other.setState('emphasized');
+					constellation.arrangeNodeFront(other);
+				});
 			}
 
 			$.each(constellation.getNodes(), function(i, n) { n.draw(); });
 			$.each(constellation.getEdges(), function(i, e) { e.draw(); });
 		}
 
+		function showNodePopover(node) {
+			$('#nodePopover .popover-content').html(
+				'<div style="float:left;height:50px;width:50px"><img src="' + node.data.pic_square + '" width="50" height="50" /></div>'
+				+ '<div style="margin-left: 60px;min-height: 50px;"><p style="font-weight:bold">'
+				+ '<a href="' + node.data.link + '" target="_blank" style="color:#333">' + node.data.name + '</a>'
+				+ '</p></div>');
+			$('#nodePopover').show();
+		}
+
+		function hideNodePopover() {
+			$('#nodePopover').hide();
+		}
+
 		function positionNodePopover(node) {
+
 			var offset = $(node.renderer.group).offset();
 			offset.top -= $('#nodePopover').height() + 17;
 			offset.left -= $('#nodePopover').width() / 2 - 3;
 			$('#nodePopover').offset(offset);
-		}
-
-		function getVisualizationMode() {
-			return visualizationMode;
-		}
-		function setVisualizationMode(mode) {
-			if (visualizationMode == mode) return;
-			switch (mode) {
-				case 'overview':
-					constellation.setGraphView(new DirectGraphView(constellation.config.graphView));
-					constellation.setLayout(new CustomLayout(constellation.config.layout));
-					break;
-
-				case 'explore':
-					constellation.setGraphView(new TreeGraphView({depth: 2}));
-					constellation.setLayout(new RoamerLayout(constellation.config.layout));
-					break;
-			}
-			visualizationMode = mode;
-		}
-
-		function exploreNode(nodeId) {
-			setVisualizationMode('explore');
-			selectNode(nodeId);
 		}
 
 	</script>

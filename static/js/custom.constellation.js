@@ -83,25 +83,7 @@ CustomNodeRenderer.prototype.create = function(){
 	var svg = this.constellation.svg;
 	var container = this.constellation.getNodeContainer();
 	
-	var picSize = 30;
-
-	var group = svg.group(container, {'display': 'none'});
-	var label = svg.text(group, 0, 0, this.data.name, {
-		style: '-webkit-user-select: none;-khtml-user-select: none;-moz-user-select: none;-o-user-select: none;user-select: none;',
-		fontFamily: 'Verdana',
-		fontSize: 15,
-		fontWeight: 'bold',
-		fill: '#441111',
-		textAnchor: 'start',
-		
-		// HACK: Better cross-browser compatibility with 'dy'
-		//dominantBaseline: 'central'
-		dy: '.35em'
-	});
-
-	var labelBounds = label.getBBox();
-	var totalWidth = 4 + picSize + 6 + labelBounds.width + 4;
-
+	var group = svg.group(container, {'display': 'none', 'style': 'cursor: hand'});
 	this.renderer = {
 		group: group,
 		graphic: svg.circle(group, 0, 0, 5, {
@@ -109,31 +91,20 @@ CustomNodeRenderer.prototype.create = function(){
 			'stroke': '#666666',
 			'strokeWidth': 1
 		}),
-		box: svg.rect(
-			group,
-			-totalWidth/2,
-			-labelBounds.height/2 - 4,
-			totalWidth,
-			labelBounds.height + 8,
-			4, 4, {
-				fill: '#ffffff',
-				stroke: '#000000',
-				strokeWidth: 1
-			}),
-		picBox: svg.rect(group, -totalWidth/2 + 4, -15, picSize, picSize, 0, 0, {
-			fill: '#ffffff',
-			stroke: '#000000',
-			strokeWidth: 1
+		label: svg.text(group, 10, 1, this.data.name, {
+			'style': '-webkit-user-select: none;-khtml-user-select: none;-moz-user-select: none;-o-user-select: none;user-select: none',
+			'fontFamily': 'Verdana',
+			'fontSize': 14,
+			'fontWeight': 'normal',
+			'fill': '#441111',
+			'textAnchor': 'start',
+			
+			// HACK: Better cross-browser compatibility with 'dy'
+			//dominantBaseline: 'central'
+			'dy': '.35em'
 		}),
-		pic: svg.image(group, -totalWidth/2 + 4, -15, picSize, picSize, this.data.pic_square),
-		label: label,
 		tooltip: svg.title(group, this.data.name)
 	};
-
-	jQuery(label).insertAfter(jQuery(group).children().last());
-	svg.change(label, {
-		x: -totalWidth/2 + 4 + picSize + 6
-	});
 
 	jQuery(this.renderer.group)
 		.bind('mouseover', {'context':this}, function(event) {
@@ -156,11 +127,11 @@ CustomNodeRenderer.prototype.create = function(){
 CustomNodeRenderer.prototype.draw = function() {
 	var svg = this['constellation']['svg'];
 
-	var mode = getVisualizationMode();
 	var hasSelection = this.constellation.getSelectedNodeId() != null;
 	var settings = {};
 	switch (this.state) {
 		case 'selected':
+			$(this.renderer.label).show();
 			settings = {
 				'fill': '#ff3333',
 				'stroke': '#666666',
@@ -168,6 +139,7 @@ CustomNodeRenderer.prototype.draw = function() {
 			};
 			break;
 		case 'emphasized':
+			$(this.renderer.label).show();
 			settings = {
 				'fill': '#ff9999',
 				'stroke': '#666666',
@@ -175,9 +147,10 @@ CustomNodeRenderer.prototype.draw = function() {
 			};
 			break;
 		default:
+			$(this.renderer.label).hide();
 			settings = {
-				'fill': mode == 'overview' && hasSelection ? '#eeeeee' : '#9999ff',
-				'stroke': mode == 'overview' && hasSelection ? '#cccccc' : '#666666',
+				'fill': hasSelection ? '#eeeeee' : '#9999ff',
+				'stroke': hasSelection ? '#cccccc' : '#666666',
 				'strokeWidth': 1
 			};
 			break;
