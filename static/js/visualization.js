@@ -10,7 +10,7 @@ var extendedPermissions = [
 	'friends_religion_politics',
 	'friends_relationship_details'
 ];
-var basicFields = ['id', 'name', 'username', 'gender', 'link', 'age_range'];
+var basicFields = ['id', 'name', 'username', 'gender', 'link'];
 var extendedFields = ['hometown', 'location', 'political', 'relationship_status', 'religion'];
 
 function initConstellation() {
@@ -185,6 +185,42 @@ function loadFriends(fields) {
 				$('#friendList').append(
 					"<li><a href=\"javascript:selectNode('" + d.id + "');\">" + d.name + '</a></li>');
 			});
+
+			// Get information for filtering.
+			var filterData = getFilterData(response.data);
+			$.each(filterData, function(field, fieldData) {
+				var filterList = $('#' + field + 'FilterList');
+				filterList.empty().append('<li><a href="#">All</a></li><li class="divider"></li>');
+
+				var undisclosed, other, hasValue = false;
+				$.each(fieldData, function(i, data) {
+					var value = data.value;
+					var count = data.count;
+
+					if (value == 'Undisclosed') {
+						undisclosed = data;
+					}
+					else if (value == 'Other') {
+						other = data;
+					}
+					else {
+						if (value == 'male') value = 'Male';
+						if (value == 'female') value = 'Female';
+						filterList.append(formatFilterListItem(field, value, count));
+						hasValue = true;
+					}
+				});
+
+				if (hasValue && (undisclosed || other)) {
+					filterList.append('<span class="divider"></span>');
+				}
+				if (undisclosed) {
+					filterList.append(formatFilterListItem(field, undisclosed.value, undisclosed.count));
+				}
+				if (other) {
+					filterList.append(formatFilterListItem(field, other.value, other.count));
+				}
+			});
 		}
 		else {
 			// FIXME: Implement error-handling.
@@ -192,6 +228,81 @@ function loadFriends(fields) {
 			console.log(response);
 		}
 	});
+}
+
+function getFilterData(friends) {
+	var filterFields = ['gender', 'relationship_status', 'location', 'hometown', 'political', 'religion'];
+	var filterData = {};
+	$.each(friends, function(i, friend) {
+		$.each(filterFields, function(j, field) {
+			if (!filterData[field]) filterData[field] = {};
+
+			var value;
+			switch (field) {
+				case 'hometown':
+				case 'location':
+					value = friend[field] ? friend[field]['name'] : null;
+					break;
+				default:
+					value = friend[field];
+			}
+
+			if (value == null) {
+				if (filterData[field]['Undisclosed']) {
+					filterData[field]['Undisclosed']++;
+				}
+				else {
+					filterData[field]['Undisclosed'] = 1;
+				}
+			}
+			else if (filterData[field][value]) {
+				filterData[field][value]++;
+			}
+			else {
+				filterData[field][value] = 1;
+			}
+		});
+	});
+
+	// Aggregate infrequent values.
+	$.each(filterData, function(field, fieldData) {
+		var otherCount = 0;
+		$.each(fieldData, function(value, count) {
+			if (count < 3) {
+				otherCount += count;
+				delete fieldData[value];
+			}
+		});
+		if (otherCount > 0) {
+			fieldData['Other'] = otherCount;
+		}
+	});
+
+	// Convert field values to an array and sort.
+	$.each(filterData, function(field, fieldData) {
+		var fieldArray = [];
+		$.each(fieldData, function(value, count) {
+			fieldArray.push({value: value, count: count});
+		});
+		fieldArray.sort(function(a,b) {
+			if (a.count < b.count) return 1;
+			if (a.count > b.count) return -1;
+			return 0;
+		});
+		filterData[field] = fieldArray;
+	});
+
+	return filterData;
+}
+
+function formatFilterListItem(field, value, count) {
+	if (value.length > 30) {
+		value = value.substr(0, 27) + '...';
+	}
+
+	return '<li><a href="#">' + value
+		+ ' <span class="muted">(' + count + ' ' + (count == 1 ? 'friend' : 'friends') + ')'
+		+ '</span></a></li>';
 }
 
 function selectNode(nodeId) {
