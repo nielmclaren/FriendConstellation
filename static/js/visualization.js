@@ -3,6 +3,16 @@ var constellation;
 var prevSelectedNodeId;
 var popoverTimeoutId;
 
+var extendedPermissions = [
+	'friends_relationships',
+	'friends_hometown',
+	'friends_location',
+	'friends_religion_politics',
+	'friends_relationship_details'
+];
+var basicFields = ['id', 'name', 'username', 'gender', 'link', 'age_range'];
+var extendedFields = ['hometown', 'location', 'political', 'relationship_status', 'religion'];
+
 function initConstellation() {
 	var config = {
 		id: 'constellation',
@@ -104,20 +114,82 @@ function initConstellation() {
 		constellation.setZoomScale(Math.min(2, constellation.getZoomScale() * 1.4));
 	});
 
+	$('#additionalPermissionsButton').click(function(event) {
+		FB.login(function(response) {
+			// User might have clicked cancel so have to check permissions again.
+			FB.api('/me/permissions', function(response) {
+				if (response.data) {
+					var ungrantedPermissions = extendedPermissions.filter(function(d,i,a) { return response.data[0][d] != 1; });
+					if (ungrantedPermissions.length > 0) {
+						console.log("Missing permissions: " + ungrantedPermissions.join(', '));
+						$('#additionalPermissionsButton').show();
+					}
+					else {
+						loadFriends(basicFields.concat(extendedFields));
+						$('#additionalPermissionsButton').hide();
+					}
+				}
+			});
+		}, {scope: extendedPermissions.join(',')});
+	});
+
 	FB.getLoginStatus(function(response) {
 		if (response.status === 'connected') {
-			FB.api('/me/friends', function(response) {
+			// If we're logged in, check whether the user has granted the extended permissions.
+			FB.api('/me/permissions', function(response) {
 				if (response.data) {
-					response.data.sort(function(a,b) { return a.name < b.name ? -1 : a.name > b.name ? 1 : 0; });
-					$.each(response.data, function(i, d) {
-						$('#friendList').append(
-							"<li><a href=\"javascript:selectNode('" + d.id + "');\">" + d.name + '</a></li>');
-					});
+					var ungrantedPermissions = extendedPermissions.filter(function(d,i,a) { return response.data[0][d] != 1; });
+					if (ungrantedPermissions.length > 0) {
+						console.log("Missing permissions: " + ungrantedPermissions.join(', '));
+						loadFriends(basicFields);
+						$('#additionalPermissionsButton').show();
+					}
+					else {
+						loadFriends(basicFields.concat(extendedFields));
+						$('#additionalPermissionsButton').hide();
+					}
+				}
+				else {
+					// FIXME: Implement error handling.
+					console.log(response);
 				}
 			});
 		}
 		else {
+			// Not logged in so send the user back.
 			window.location = '/';
+		}
+	});
+}
+
+function loadFriends(fields) {
+	FB.api('/me/friends?fields=' + fields.join(','), function(response) {
+		if (response.data) {
+			// Update the friend info in the graph data model.
+			var model = constellation.getModel();
+			$.each(response.data, function(i, friend) {
+				var node = model.getNode(friend.id);
+				if (node) {
+					$.extend(node.data, friend);
+				}
+				else {
+					console.warn("Friend loaded from Facebook wasn't found in the graph data.");
+				}
+			});
+			constellation.modelChanged();
+
+			// Add the friends to the "Jump to" dropdown.
+			$('#friendList').empty();
+			response.data.sort(function(a,b) { return a.name < b.name ? -1 : a.name > b.name ? 1 : 0; });
+			$.each(response.data, function(i, d) {
+				$('#friendList').append(
+					"<li><a href=\"javascript:selectNode('" + d.id + "');\">" + d.name + '</a></li>');
+			});
+		}
+		else {
+			// FIXME: Implement error-handling.
+			console.warn("Error loading friends from Facebook.");
+			console.log(response);
 		}
 	});
 }
