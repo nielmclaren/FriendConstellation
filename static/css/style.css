@@ -15,6 +15,7 @@ td {
 }
 
 #constellation {
+	background: black;
 	height: 100%;
 	width: 100%;
 }
@@ -39,8 +40,8 @@ td {
 /* Remove the arrow from the dropdown box. */
 .navbar .nav > li > .dropdown-menu::before, 
 .navbar .nav > li > .dropdown-menu::after {
-    border: none;
-    content: none;
+	border: none;
+	content: none;
 }
 
 .navbar .nav li.zoomButton {

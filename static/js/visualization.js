@@ -3,6 +3,8 @@ var constellation;
 var prevSelectedNodeId;
 var popoverTimeoutId;
 
+var categoryColors = ['#ba2022', '#4c14b3', '#1a51c5', '#3b70b6', '#009b3a', '#f8a20d'];
+
 var extendedPermissions = [
 	'friends_relationships',
 	'friends_hometown',
@@ -55,7 +57,7 @@ function initConstellation() {
 				popoverTimeoutId = setTimeout(function() {
 					showNodePopover(node);
 					positionNodePopover(node);
-				}, 250);
+				}, 350);
 			}
 		})
 		.bind('nodemouseout', function(event, nodeId) {

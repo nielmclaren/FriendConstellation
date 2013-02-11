@@ -82,21 +82,24 @@ CustomNodeRenderer.prototype.setState = function(state) {
 CustomNodeRenderer.prototype.create = function(){
 	var svg = this.constellation.svg;
 	var container = this.constellation.getNodeContainer();
-	
+
 	var group = svg.group(container, {'display': 'none', 'style': 'cursor: hand'});
 	this.renderer = {
 		group: group,
-		graphic: svg.circle(group, 0, 0, 5, {
-			'fill': '#9999ff',
-			'stroke': '#666666',
+		highlight: svg.circle(group, 0, 0, 16, {
+			'display': 'none',
+			'fill': '#ffffff',
+			'fillOpacity': 0.2
+		}),
+		graphic: svg.circle(group, 0, 0, 8, {
+			'stroke': '#333333',
 			'strokeWidth': 1
 		}),
-		label: svg.text(group, 10, 1, this.data.name, {
+		label: svg.text(group, 14, 1, this.data.name, {
 			'style': '-webkit-user-select: none;-khtml-user-select: none;-moz-user-select: none;-o-user-select: none;user-select: none',
 			'fontFamily': 'Verdana',
-			'fontSize': 14,
+			'fontSize': 13,
 			'fontWeight': 'normal',
-			'fill': '#441111',
 			'textAnchor': 'start',
 			
 			// HACK: Better cross-browser compatibility with 'dy'
@@ -128,34 +131,40 @@ CustomNodeRenderer.prototype.draw = function() {
 	var svg = this['constellation']['svg'];
 
 	var hasSelection = this.constellation.getSelectedNodeId() != null;
-	var settings = {};
+	var graphicSettings = {
+		fill: this.data.category == null ? '#666666' : categoryColors[this.data.category]
+	};
+		
 	switch (this.state) {
 		case 'selected':
 			$(this.renderer.label).show();
-			settings = {
-				'fill': '#ff3333',
-				'stroke': '#666666',
-				'strokeWidth': 2
+			$(this.renderer.highlight).show();
+			labelSettings = {
+				'fill': '#ffffff'
 			};
 			break;
+
 		case 'emphasized':
 			$(this.renderer.label).show();
-			settings = {
-				'fill': '#ff9999',
-				'stroke': '#666666',
-				'strokeWidth': 1
+			$(this.renderer.highlight).hide();
+			labelSettings = {
+				'fill': '#cccccc'
 			};
 			break;
+
 		default:
 			$(this.renderer.label).hide();
-			settings = {
-				'fill': hasSelection ? '#eeeeee' : '#9999ff',
-				'stroke': hasSelection ? '#cccccc' : '#666666',
-				'strokeWidth': 1
+			$(this.renderer.highlight).hide();
+			if (hasSelection) {
+				graphicSettings.fill = '#111111';
+			}
+			labelSettings = {
+				'fill': '#cccccc'
 			};
 			break;
 	}
-	svg.change(this.renderer.graphic, settings);
+	svg.change(this.renderer.graphic, graphicSettings);
+	svg.change(this.renderer.label, labelSettings);
 	
 	this.position();
 	
@@ -192,11 +201,7 @@ CustomEdgeRenderer.prototype.create = function() {
 	var group = svg.group(container);
 	this.renderer = {
 		group: group,
-		line: svg.line(group, 0, 0, 10, 0, {
-			'display': 'none',
-			'stroke': '#cccccc',
-			'strokeWidth': 2
-		})
+		line: svg.line(group, 0, 0, 10, 0, {'display': 'none'})
 	};
 	
 	jQuery(this.renderer.line)
@@ -226,7 +231,7 @@ CustomEdgeRenderer.prototype.create = function() {
 CustomEdgeRenderer.prototype.draw = function() {
 	var hasSelection = this.constellation.getSelectedNodeId() != null;
 	jQuery(this.renderer.line)
-		.css('stroke', this.state == 'emphasized' ? '#888888' : hasSelection ? '#eeeeee' : '#cccccc')
+		.css('stroke', this.state == 'emphasized' ? '#888888' : hasSelection ? '#222222' : '#444444')
 		.css('display', 'inline');
 };
 
