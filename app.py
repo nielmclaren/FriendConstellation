@@ -191,9 +191,14 @@ def get_token():
 		}
 
 		from urlparse import parse_qs
-		r = requests.get('https://graph.facebook.com/oauth/access_token', params=params)
-		rd = parse_qs(r.content)
-		token = rd.get('access_token')
+		try:
+			r = requests.get('https://graph.facebook.com/oauth/access_token', params=params)
+			rd = parse_qs(r.content)
+			token = rd.get('access_token')
+		except ConnectionError, err:
+			print "Got connection error. {0}".format(err)
+			return None
+
 		if token:
 			token = token[0]
 			me = fb_call('me', args={'access_token': token})
