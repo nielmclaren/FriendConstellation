@@ -175,6 +175,27 @@ function loadFriends(fields) {
 			$.each(response.data, function(i, friend) {
 				var node = model.getNode(friend.id);
 				if (node) {
+					// Collapse 'location' and 'hometown' values now to save us lots of pain later.
+					if (friend['location']) {
+						if (friend['location']['name']) {
+							friend['location'] = friend['location']['name'];
+						}
+						else {
+							delete friend['location'];
+						}
+					}
+					if (friend['hometown']) {
+						if (friend['hometown']) {
+							friend['hometown'] = friend['hometown']['name'];
+						}
+						else {
+							delete friend['hometown'];
+						}
+					}
+
+					if (friend['gender'] == 'male') friend['gender'] = 'Male';
+					if (friend['gender'] == 'female') friend['gender'] = 'Female';
+
 					$.extend(node.data, friend);
 				}
 				else {
@@ -247,16 +268,7 @@ function getCategoryData(friends) {
 			// field value, the count, and the index.
 			if (!result[field]) result[field] = {map: {}, list: []};
 
-			var value;
-			switch (field) {
-				case 'hometown':
-				case 'location':
-					value = friend[field] ? friend[field]['name'] : null;
-					break;
-				default:
-					value = friend[field];
-			}
-
+			var value = friend[field];
 			if (value == null) {
 				if (result[field].map['Undisclosed']) {
 					result[field].map['Undisclosed'].count++;
@@ -306,6 +318,7 @@ function getCategoryData(friends) {
 			else if (value == 'Other') other = valueData;
 			else if (!valueData.other) fieldArray.push(valueData);
 		});
+
 		fieldArray.sort(function(a,b) {
 			if (a.count < b.count) return 1;
 			if (a.count > b.count) return -1;
@@ -353,17 +366,8 @@ function setFilterCategory(field, filterValue) {
 
 	$.each(constellation.getNodes(), function(i, node) {
 		if (field) {
-			var value;
-			switch (field) {
-				case 'hometown':
-				case 'location':
-					value = node.data[field] ? node.data[field]['name'] : null;
-					break;
-				default:
-					value = node.data[field];
-			}
+			var value = node.data[field];
 			if (!value) value = 'Undisclosed';
-			
 			node.data.category = categoryData[field].map[value].index; 
 		}
 		else {
@@ -420,10 +424,6 @@ function showNodePopover(node) {
 			case 'x':
 			case 'y':
 				break;
-			case 'hometown':
-			case 'location':
-				str += '<li>' + field + ': ' + value.name + '</li>';
-				break;
 			default:
 				str += '<li>' + field + ': ' + value + '</li>';
 		}
@@ -432,15 +432,7 @@ function showNodePopover(node) {
 
 	var categoryValueStr = '';
 	if (selectedFilterCategory) {
-		var value;
-		switch (selectedFilterCategory) {
-			case 'hometown':
-			case 'location':
-				value = node.data[selectedFilterCategory] ? node.data[selectedFilterCategory]['name'] : null;
-				break;
-			default:
-				value = node.data[selectedFilterCategory];
-		}
+		var value = node.data[selectedFilterCategory];
 		if (!value) value = 'Undisclosed';
 		categoryValueStr = '<p>' + value + '</p>';
 	}
