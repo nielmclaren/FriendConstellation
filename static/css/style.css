@@ -22,7 +22,17 @@ td {
 
 #friendList {
 	max-height: 400px;
-	overflow-y: scroll;
+	overflow-y: auto;
+}
+
+.filterColor {
+	border: 1px solid #ccc;
+	border-radius: 3px;
+	display: block;
+	float: left;
+	height: 16px;
+	margin-right: 0.6em;
+	width: 16px;
 }
 
 #footer {
@@ -35,6 +45,11 @@ td {
 }
 
 #footer .content {
+}
+
+#footer .dropdown-menu {
+	max-height: 400px;
+	overflow-y: auto;
 }
 
 /* Remove the arrow from the dropdown box. */

@@ -131,8 +131,10 @@ CustomNodeRenderer.prototype.draw = function() {
 	var svg = this['constellation']['svg'];
 
 	var hasSelection = this.constellation.getSelectedNodeId() != null;
+
+	var category = this.data.category;
 	var graphicSettings = {
-		fill: this.data.category == null ? '#666666' : categoryColors[this.data.category]
+		fill: isNaN(category) || category < 0 || category >= categoryColors.length ? '#666666' : categoryColors[this.data.category]
 	};
 		
 	switch (this.state) {
@@ -148,7 +150,7 @@ CustomNodeRenderer.prototype.draw = function() {
 			$(this.renderer.label).show();
 			$(this.renderer.highlight).hide();
 			labelSettings = {
-				'fill': '#cccccc'
+				'fill': '#bbbbbb'
 			};
 			break;
 
@@ -159,7 +161,7 @@ CustomNodeRenderer.prototype.draw = function() {
 				graphicSettings.fill = '#111111';
 			}
 			labelSettings = {
-				'fill': '#cccccc'
+				'fill': '#bbbbbb'
 			};
 			break;
 	}

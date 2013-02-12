@@ -3,7 +3,10 @@ var constellation;
 var prevSelectedNodeId;
 var popoverTimeoutId;
 
-var categoryColors = ['#ba2022', '#4c14b3', '#1a51c5', '#3b70b6', '#009b3a', '#f8a20d'];
+var selectedFilterCategory;
+var selectedFilterValue;
+var categoryColors = ['#ba2022', '#4c14b3', '#3b70b6', '#009b3a', '#f8a20d'];
+var categoryData = {};
 
 var extendedPermissions = [
 	'friends_relationships',
@@ -188,16 +191,19 @@ function loadFriends(fields) {
 					"<li><a href=\"javascript:selectNode('" + d.id + "');\">" + d.name + '</a></li>');
 			});
 
-			// Get information for filtering.
-			var filterData = getFilterData(response.data);
-			$.each(filterData, function(field, fieldData) {
+			// Update category filter controls.
+			categoryData = getCategoryData(response.data);
+			$.each(categoryData, function(field, fieldData) {
 				var filterList = $('#' + field + 'FilterList');
-				filterList.empty().append('<li><a href="#">All</a></li><li class="divider"></li>');
+				filterList.empty().append(
+					"<li><a href=\"javascript:setFilterCategory('" + field + "', 'All');\">All</a></li>"
+					+ '<li class="divider"></li>');
 
 				var undisclosed, other, hasValue = false;
-				$.each(fieldData, function(i, data) {
+				$.each(fieldData.list, function(i, data) {
 					var value = data.value;
 					var count = data.count;
+					var index = data.index;
 
 					if (value == 'Undisclosed') {
 						undisclosed = data;
@@ -206,21 +212,20 @@ function loadFriends(fields) {
 						other = data;
 					}
 					else {
-						if (value == 'male') value = 'Male';
-						if (value == 'female') value = 'Female';
-						filterList.append(formatFilterListItem(field, value, count));
+						filterList.append(formatFilterListItem(field, value, count, index));
 						hasValue = true;
+						index++;
 					}
 				});
 
-				if (hasValue && (undisclosed || other)) {
+				if (other) {
+					filterList.append(formatFilterListItem(field, 'Other', other.count, other.index));
+				}
+				if ((hasValue || other) && undisclosed) {
 					filterList.append('<span class="divider"></span>');
 				}
 				if (undisclosed) {
-					filterList.append(formatFilterListItem(field, undisclosed.value, undisclosed.count));
-				}
-				if (other) {
-					filterList.append(formatFilterListItem(field, other.value, other.count));
+					filterList.append(formatFilterListItem(field, 'Undisclosed', undisclosed.count, undisclosed.index));
 				}
 			});
 		}
@@ -232,12 +237,15 @@ function loadFriends(fields) {
 	});
 }
 
-function getFilterData(friends) {
+function getCategoryData(friends) {
 	var filterFields = ['gender', 'relationship_status', 'location', 'hometown', 'political', 'religion'];
-	var filterData = {};
+	var result = {};
 	$.each(friends, function(i, friend) {
 		$.each(filterFields, function(j, field) {
-			if (!filterData[field]) filterData[field] = {};
+			// We're gonna store the category data as a mapping from field name
+			// and as a sorted list. Both will point to objects containing the
+			// field value, the count, and the index.
+			if (!result[field]) result[field] = {map: {}, list: []};
 
 			var value;
 			switch (field) {
@@ -250,61 +258,119 @@ function getFilterData(friends) {
 			}
 
 			if (value == null) {
-				if (filterData[field]['Undisclosed']) {
-					filterData[field]['Undisclosed']++;
+				if (result[field].map['Undisclosed']) {
+					result[field].map['Undisclosed'].count++;
 				}
 				else {
-					filterData[field]['Undisclosed'] = 1;
+					result[field].map['Undisclosed'] = {value: 'Undisclosed', count: 1, index: -1, other: false};
 				}
 			}
-			else if (filterData[field][value]) {
-				filterData[field][value]++;
+			else if (result[field].map[value]) {
+				result[field].map[value].count++;
 			}
 			else {
-				filterData[field][value] = 1;
+				result[field].map[value] = {value: value, count: 1, other: false};
 			}
 		});
 	});
 
-	// Aggregate infrequent values.
-	$.each(filterData, function(field, fieldData) {
-		var otherCount = 0;
-		$.each(fieldData, function(value, count) {
-			if (count < 3) {
-				otherCount += count;
-				delete fieldData[value];
+	// Aggregate infrequent values into the 'Other' category.
+	var minGroupSize = 3;
+	$.each(result, function(field, fieldData) {
+		var fieldMap = fieldData.map;
+
+		var other;
+		$.each(fieldMap, function(value, valueData) {
+			if (valueData.count < minGroupSize) {
+				if (other) {
+					other.count += valueData.count;
+				}
+				else {
+					fieldMap['Other'] = other = {value: 'Other', count: valueData.count, other: true};
+				}
+
+				// Point this value to the other valueData object.
+				fieldMap[value] = other;
 			}
 		});
-		if (otherCount > 0) {
-			fieldData['Other'] = otherCount;
-		}
 	});
 
-	// Convert field values to an array and sort.
-	$.each(filterData, function(field, fieldData) {
+	// Convert field values to an array, sort, and save the index values.
+	$.each(result, function(field, fieldData) {
+		var fieldMap = fieldData.map;
+
 		var fieldArray = [];
-		$.each(fieldData, function(value, count) {
-			fieldArray.push({value: value, count: count});
+		var undisclosed, other;
+		$.each(fieldMap, function(value, valueData) {
+			if (value == 'Undisclosed') undisclosed = valueData;
+			else if (value == 'Other') other = valueData;
+			else if (!valueData.other) fieldArray.push(valueData);
 		});
 		fieldArray.sort(function(a,b) {
 			if (a.count < b.count) return 1;
 			if (a.count > b.count) return -1;
+			if (a.value < b.value) return -1;
+			if (a.value > b.value) return 1;
 			return 0;
 		});
-		filterData[field] = fieldArray;
+
+		// Push 'Other' category onto fieldArray now so it gets an index.
+		if (other) fieldArray.push(other);
+
+		// Assign category indices.
+		$.each(fieldArray, function(i, d) {
+			d.index = i;
+		});
+
+		// Push 'Undisclosed' category onto fieldArray now so it keeps its index of -1.
+		if (undisclosed) fieldArray.push(undisclosed);
+
+		result[field].list = fieldArray;
 	});
 
-	return filterData;
+	return result;
 }
 
-function formatFilterListItem(field, value, count) {
-	if (value.length > 30) {
-		value = value.substr(0, 27) + '...';
+function formatFilterListItem(field, value, count, index) {
+	var label = value.charAt(0).toUpperCase() + value.slice(1);
+	if (label.length > 30) {
+		label = label.substr(0, 27) + '...';
 	}
 
-	return '<li><a href="#">' + value
+	var color = isNaN(index) || index < 0 || index >= categoryColors.length ? '#666666' : categoryColors[index];
+
+	return '<li>'
+		+ "<a href=\"javascript:setFilterCategory('" + field + "', '" + value + "');\">"
+		+ '<i class="filterColor" style="background:' + color + '"></i>'
+		+ label
 		+ ' <span class="muted">(' + count + ' ' + (count == 1 ? 'friend' : 'friends') + ')'
 		+ '</span></a></li>';
+}
+
+function setFilterCategory(field, filterValue) {
+	selectedFilterCategory = field;
+	selectedFilterValue = filterValue;
+
+	$.each(constellation.getNodes(), function(i, node) {
+		if (field) {
+			var value;
+			switch (field) {
+				case 'hometown':
+				case 'location':
+					value = node.data[field] ? node.data[field]['name'] : null;
+					break;
+				default:
+					value = node.data[field];
+			}
+			if (!value) value = 'Undisclosed';
+			
+			node.data.category = categoryData[field].map[value].index; 
+		}
+		else {
+			node.data.category = -1;
+		}
+		node.draw();
+	});
 }
 
 function selectNode(nodeId) {
@@ -342,11 +408,50 @@ function selectNode(nodeId) {
 }
 
 function showNodePopover(node) {
+	var str = '';
+	$.each(node.data, function(field, value) {
+		switch (field) {
+			case 'id':
+			case 'name': 
+			case 'username': 
+			case 'category': 
+			case 'link':
+			case 'pic_square':
+			case 'x':
+			case 'y':
+				break;
+			case 'hometown':
+			case 'location':
+				str += '<li>' + field + ': ' + value.name + '</li>';
+				break;
+			default:
+				str += '<li>' + field + ': ' + value + '</li>';
+		}
+	});
+	if (str.length > 0) str = '<ul>' + str + '</ul>';
+
+	var categoryValueStr = '';
+	if (selectedFilterCategory) {
+		var value;
+		switch (selectedFilterCategory) {
+			case 'hometown':
+			case 'location':
+				value = node.data[selectedFilterCategory] ? node.data[selectedFilterCategory]['name'] : null;
+				break;
+			default:
+				value = node.data[selectedFilterCategory];
+		}
+		if (!value) value = 'Undisclosed';
+		categoryValueStr = '<p>' + value + '</p>';
+	}
+
 	$('#nodePopover .popover-content').html(
 		'<div style="float:left;height:50px;width:50px"><img src="' + node.data.pic_square + '" width="50" height="50" /></div>'
 		+ '<div style="margin-left: 60px;min-height: 50px;"><p style="font-weight:bold">'
 		+ '<a href="' + node.data.link + '" target="_blank" style="color:#333">' + node.data.name + '</a>'
-		+ '</p></div>');
+		+ '</p>'
+		+ categoryValueStr
+		+ '</div>');
 	$('#nodePopover').show();
 }
 
