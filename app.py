@@ -195,7 +195,7 @@ def get_token():
 			r = requests.get('https://graph.facebook.com/oauth/access_token', params=params)
 			rd = parse_qs(r.content)
 			token = rd.get('access_token')
-		except ConnectionError, err:
+		except requests.ConnectionError, err:
 			print "Got connection error. {0}".format(err)
 			return None
 
@@ -479,7 +479,7 @@ def processFetchData(chart):
 						print "Got errors: (" + str(len(errors)) + ") " + json.dumps(errors)
 						error = True
 
-				except ConnectionError, err:
+				except requests.ConnectionError, err:
 					print "Got connection error. {0}".format(err)
 					error = True
 
