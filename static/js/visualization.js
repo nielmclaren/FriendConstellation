@@ -6,6 +6,26 @@ var popoverTimeoutId;
 var selectedFilterCategory;
 var selectedFilterValue;
 var categoryColors = ['#ba2022', '#4c14b3', '#3b70b6', '#009b3a', '#f8a20d'];
+
+/**
+ * A map of field names to objects containing two properties: map and list.
+ *
+ * The map property maps category field values to valueData objects. Field values
+ * that were aggregated into the 'Other' category are mapped to the 'Other'
+ * valueData object instead of their own valueData objects.
+ *
+ * The list property contains valueData objects sorted by reverse count with
+ * 'Other' and 'Undisclosed' at the end. The list property does not contain
+ * references to any values the were aggregated into the 'Other' category.
+ *
+ * valueData objects have the following properties:
+ * - value: The field value, e.g., 'female'.
+ * - count: The number of occurences of this value.
+ * - index: The index of the valueData object in the list property. Used for color.
+ * - other: Boolean indicating whether this is an 'Other' category.
+ *
+ * This gets initialized in parseCategoryData.
+ */
 var categoryData = {};
 
 var extendedPermissions = [
@@ -68,19 +88,7 @@ function initConstellation() {
 			$('#nodePopover').hide();
 		})
 		.bind('nodeclick', function(event, nodeId) {
-			var node = constellation.getNode(nodeId);
-
-			if (constellation.getSelectedNodeId() == nodeId) {
-				if ($('#nodePopover').css('display') == 'block') {
-					$('#nodePopover').hide();
-				}
-				else {
-					$('#nodePopover').show();
-				}
-			}
-			else {
-				selectNode(nodeId);
-			}
+			selectNode(nodeId);
 		})
 		.bind('click', function(event) {
 			// Background click.
@@ -120,6 +128,7 @@ function initConstellation() {
 	});
 
 	$('#additionalPermissionsButton').click(function(event) {
+		// Popup the login dialogue asking for extended permissions.
 		FB.login(function(response) {
 			// User might have clicked cancel so have to check permissions again.
 			FB.api('/me/permissions', function(response) {
@@ -170,7 +179,7 @@ function initConstellation() {
 function loadFriends(fields) {
 	FB.api('/me/friends?fields=' + fields.join(','), function(response) {
 		if (response.data) {
-			// Update the friend info in the graph data model.
+			// Add the friend data to the nodes in the graph data model.
 			var model = constellation.getModel();
 			$.each(response.data, function(i, friend) {
 				var node = model.getNode(friend.id);
@@ -193,6 +202,7 @@ function loadFriends(fields) {
 						}
 					}
 
+					// Use capitalized gender labels.
 					if (friend['gender'] == 'male') friend['gender'] = 'Male';
 					if (friend['gender'] == 'female') friend['gender'] = 'Female';
 
@@ -212,8 +222,9 @@ function loadFriends(fields) {
 					"<li><a href=\"javascript:selectNode('" + d.id + "');\">" + d.name + '</a></li>');
 			});
 
+			parseCategoryData(response.data);
+
 			// Update category filter controls.
-			categoryData = getCategoryData(response.data);
 			$.each(categoryData, function(field, fieldData) {
 				var filterList = $('#' + field + 'FilterList');
 				filterList.empty().append(
@@ -222,23 +233,20 @@ function loadFriends(fields) {
 
 				var undisclosed, other, hasValue = false;
 				$.each(fieldData.list, function(i, data) {
-					var value = data.value;
-					var count = data.count;
-					var index = data.index;
-
-					if (value == 'Undisclosed') {
+					if (data.value == 'Undisclosed') {
 						undisclosed = data;
 					}
-					else if (value == 'Other') {
+					else if (data.value == 'Other') {
 						other = data;
 					}
 					else {
-						filterList.append(formatFilterListItem(field, value, count, index));
+						filterList.append(formatFilterListItem(field, data.value, data.count, data.index));
 						hasValue = true;
 						index++;
 					}
 				});
 
+				// Add the 'Other' and 'Undisclosed' categories at the end of the list with a divider.
 				if (other) {
 					filterList.append(formatFilterListItem(field, 'Other', other.count, other.index));
 				}
@@ -258,37 +266,39 @@ function loadFriends(fields) {
 	});
 }
 
-function getCategoryData(friends) {
+function parseCategoryData(friends) {
 	var filterFields = ['gender', 'relationship_status', 'location', 'hometown', 'political', 'religion'];
-	var result = {};
+
+	categoryData = {};
+
 	$.each(friends, function(i, friend) {
 		$.each(filterFields, function(j, field) {
 			// We're gonna store the category data as a mapping from field name
 			// and as a sorted list. Both will point to objects containing the
 			// field value, the count, and the index.
-			if (!result[field]) result[field] = {map: {}, list: []};
+			if (!categoryData[field]) categoryData[field] = {map: {}, list: []};
 
 			var value = friend[field];
 			if (value == null) {
-				if (result[field].map['Undisclosed']) {
-					result[field].map['Undisclosed'].count++;
+				if (categoryData[field].map['Undisclosed']) {
+					categoryData[field].map['Undisclosed'].count++;
 				}
 				else {
-					result[field].map['Undisclosed'] = {value: 'Undisclosed', count: 1, index: -1, other: false};
+					categoryData[field].map['Undisclosed'] = {value: 'Undisclosed', count: 1, index: -1, other: false};
 				}
 			}
-			else if (result[field].map[value]) {
-				result[field].map[value].count++;
+			else if (categoryData[field].map[value]) {
+				categoryData[field].map[value].count++;
 			}
 			else {
-				result[field].map[value] = {value: value, count: 1, other: false};
+				categoryData[field].map[value] = {value: value, count: 1, other: false};
 			}
 		});
 	});
 
 	// Aggregate infrequent values into the 'Other' category.
 	var minGroupSize = 3;
-	$.each(result, function(field, fieldData) {
+	$.each(categoryData, function(field, fieldData) {
 		var fieldMap = fieldData.map;
 
 		var other;
@@ -308,7 +318,7 @@ function getCategoryData(friends) {
 	});
 
 	// Convert field values to an array, sort, and save the index values.
-	$.each(result, function(field, fieldData) {
+	$.each(categoryData, function(field, fieldData) {
 		var fieldMap = fieldData.map;
 
 		var fieldArray = [];
@@ -338,16 +348,13 @@ function getCategoryData(friends) {
 		// Push 'Undisclosed' category onto fieldArray now so it keeps its index of -1.
 		if (undisclosed) fieldArray.push(undisclosed);
 
-		result[field].list = fieldArray;
+		categoryData[field].list = fieldArray;
 	});
-
-	return result;
 }
 
 function formatFilterListItem(field, value, count, index) {
-	var label = value.charAt(0).toUpperCase() + value.slice(1);
-	if (label.length > 30) {
-		label = label.substr(0, 27) + '...';
+	if (value.length > 30) {
+		value = value.substr(0, 27) + '...';
 	}
 
 	var color = isNaN(index) || index < 0 || index >= categoryColors.length ? '#666666' : categoryColors[index];
@@ -355,12 +362,13 @@ function formatFilterListItem(field, value, count, index) {
 	return '<li>'
 		+ "<a href=\"javascript:setFilterCategory('" + field + "', '" + value + "');\">"
 		+ '<i class="filterColor" style="background:' + color + '"></i>'
-		+ label
+		+ value
 		+ ' <span class="muted">(' + count + ' ' + (count == 1 ? 'friend' : 'friends') + ')'
 		+ '</span></a></li>';
 }
 
 function setFilterCategory(field, filterValue) {
+	// TODO: This should de-emphasize nodes when they're not in the filter category.
 	selectedFilterCategory = field;
 	selectedFilterValue = filterValue;
 
@@ -412,24 +420,6 @@ function selectNode(nodeId) {
 }
 
 function showNodePopover(node) {
-	var str = '';
-	$.each(node.data, function(field, value) {
-		switch (field) {
-			case 'id':
-			case 'name': 
-			case 'username': 
-			case 'category': 
-			case 'link':
-			case 'pic_square':
-			case 'x':
-			case 'y':
-				break;
-			default:
-				str += '<li>' + field + ': ' + value + '</li>';
-		}
-	});
-	if (str.length > 0) str = '<ul>' + str + '</ul>';
-
 	var categoryValueStr = '';
 	if (selectedFilterCategory) {
 		var value = node.data[selectedFilterCategory];
